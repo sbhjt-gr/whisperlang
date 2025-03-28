@@ -1,4 +1,6 @@
-This is a [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Video Meeting App for React Native
+
+A React Native video conferencing application built with ZegoCloud's SDK.
 
 <img src="https://github.com/user-attachments/assets/481f65d8-6f17-42d3-bd79-ea7a2b739f92" alt="Image 1" width="100"/>
 <img src="https://github.com/user-attachments/assets/c7ec7532-04c4-4b8e-b483-5c1793cb4f40" alt="Image 2" width="100"/>
@@ -7,80 +9,91 @@ This is a [**React Native**](https://reactnative.dev) project, bootstrapped usin
 <img src="https://github.com/user-attachments/assets/6cec5f53-8381-47d2-88ae-66d0539d3cf1" alt="Image 5" width="100"/>
 <img src="https://github.com/user-attachments/assets/8cec13a1-789a-4236-829c-330293c349a4" alt="Image 6" width="100"/>
 
-# Getting Started
+## Features
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+- User authentication (login/registration) via Firebase
+- Create new video meetings with randomly generated meeting IDs
+- Join existing meetings using meeting IDs
+- Real-time video conferencing powered by ZegoCloud SDK
+- Responsive UI that works across different screen sizes
 
-## Step 1: Start the Metro Server
+## Tech Stack
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+- React Native
+- Firebase Authentication
+- ZegoCloud UIKit for video calls
+- React Navigation for screen management
 
-To start Metro, run the following command from the _root_ of your React Native project:
+## Getting Started
 
-```bash
-# using npm
-npm start
+>**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions before proceeding.
 
-# OR using Yarn
+### Prerequisites
+
+- Node.js
+- React Native CLI
+- Android Studio (for Android development)
+- Xcode (for iOS development, macOS only)
+
+### Installation
+
+1. Clone the repository:
+   ```powershell
+   git clone <repository-url>
+   cd video-meeting-react-native
+   ```
+
+2. Install dependencies:
+   ```powershell
+   yarn install
+   ```
+
+3. Install iOS dependencies (macOS only):
+   ```powershell
+   cd ios
+   pod install
+   cd ..
+   ```
+
+## Running the App
+
+### Start Metro Server
+
+First, start the Metro server in its own terminal:
+
+```powershell
 yarn start
 ```
 
-## Step 2: Start your Application
+### Run on Android
 
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
-
-### For Android
-
-```bash
-# using npm
-npm run android
-
-# OR using Yarn
+```powershell
 yarn android
 ```
 
-### For iOS
+### Run on iOS (macOS only)
 
-```bash
-# using npm
-npm run ios
-
-# OR using Yarn
+```powershell
 yarn ios
 ```
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+## Usage
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+1. Register a new account or log in with existing credentials
+2. Create a new meeting or join an existing one with a meeting ID
+3. Share the meeting ID with participants to invite them to join
 
-## Step 3: Modifying your App
+## Troubleshooting
 
-Now that you have successfully run the app, let's modify it.
+If you encounter issues:
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+- Ensure you have the correct environment setup
+- Check Firebase and ZegoCloud credentials in the project
+- For Android: Make sure your emulator/device can access the internet
+- For iOS: Verify that the necessary permissions are enabled
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+## Learn More
 
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- [React Native Documentation](https://reactnative.dev/docs/getting-started)
+- [ZegoCloud Documentation](https://docs.zegocloud.com/article/14766)
+- [Firebase Documentation](https://firebase.google.com/docs)
