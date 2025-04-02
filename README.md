@@ -1,4 +1,4 @@
-# Video Meeting App for React Native
+# Video Meeting App with React Native
 
 A React Native video conferencing application built with ZegoCloud's SDK.
 
