@@ -64,11 +64,12 @@
       ],
       "expo-router"
     ],
-    "scheme": "bit-meeting-app",
+    "scheme": "whisperlang",
     "extra": {
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": ""
       }
-    }
+    },
+    "newArchEnabled": true
   }
 }

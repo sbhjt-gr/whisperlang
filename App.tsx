@@ -4,14 +4,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ImageBackground, StyleSheet, Dimensions  } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import HomeMain from './HomeMain.js';
-import LoginScreen from './registration/LoginScreen.js';
-import RegName from './registration/RegName.js';
-import RegNumber from './registration/RegNumber.js';
-import RegEmailID from './registration/RegEmailID.js';
-import RegPassword from './registration/RegPassword.js';
-import { auth } from "./firebase.js"
-import VideoCallPage from './VideoCallPage.js';
+import HomeMain from './HomeMain';
+import LoginScreen from './registration/LoginScreen';
+import RegName from './registration/RegName';
+import RegNumber from './registration/RegNumber';
+import RegEmailID from './registration/RegEmailID';
+import RegPassword from './registration/RegPassword';
+import { auth } from "./firebase"
+import VideoCallPage from './VideoCallPage';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
