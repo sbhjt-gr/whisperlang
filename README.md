@@ -1,6 +1,13 @@
-# BIT Meeting App
+# WhisperLang
 
 A video calling application built with Expo and React Native, featuring Firebase authentication and Zego Cloud video calling capabilities.
+
+<img src="https://github.com/user-attachments/assets/481f65d8-6f17-42d3-bd79-ea7a2b739f92" alt="Image 1" width="100"/>
+<img src="https://github.com/user-attachments/assets/c7ec7532-04c4-4b8e-b483-5c1793cb4f40" alt="Image 2" width="100"/>
+<img src="https://github.com/user-attachments/assets/96e5d4b2-957d-45f4-bb10-3d44a24920f3" alt="Image 3" width="100"/>
+<img src="https://github.com/user-attachments/assets/240e809d-e907-46ab-9399-d627e8877f4e" alt="Image 4" width="100"/>
+<img src="https://github.com/user-attachments/assets/6cec5f53-8381-47d2-88ae-66d0539d3cf1" alt="Image 5" width="100"/>
+<img src="https://github.com/user-attachments/assets/8cec13a1-789a-4236-829c-330293c349a4" alt="Image 6" width="100"/>
 
 ## Features
 
