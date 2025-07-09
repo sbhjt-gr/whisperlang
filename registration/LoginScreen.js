@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions} from 'react-native'
+import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform} from 'react-native'
 import { Button, Input, Text } from '@rneui/themed'
 import { auth } from "../firebase.js"
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -49,7 +49,7 @@ export default function LoginScreen({ navigation }) {
         <Progress.Bar width={width*.6} indeterminate={true}  />
         </View>
       </Modal>
-      <Image source={require('../image/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 26 }} />
+      <Image source={require('../assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 26 }} />
       <Text h3 style={{ color: '#696969', marginBottom: -33 }}>Log into your account{'\n'}</Text>
       <Text style={{ color: '#696969', marginBottom: 30, fontSize: 13 }}>(Project done under Bengal Institute of Technology)</Text><Input placeholder="E-mail ID" type="email" value={email} containerStyle={{ width: 370 }} onChangeText={(text) => setEmail(text)} />
       <Input placeholder="Password" secureTextEntry type="text" value={password} onChangeText={(text) => setPassword(text)} onSubmitEditing={signIn} containerStyle={{

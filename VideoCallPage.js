@@ -1,6 +1,7 @@
 import React, { useLayoutEffect } from 'react';
 import { ZegoUIKitPrebuiltCall, GROUP_VIDEO_CALL_CONFIG } from '@zegocloud/zego-uikit-prebuilt-call-rn'
-import { View, StyleSheet, StatusBar } from 'react-native'
+import { View, StyleSheet } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { auth } from "./firebase.js"
 export default function VoiceCallPage({ navigation, route }) {
     useLayoutEffect(() => {
@@ -10,7 +11,7 @@ export default function VoiceCallPage({ navigation, route }) {
     })
     return (
         <View style={styles.container}>
-            <StatusBar backgroundColor='black' />
+            <StatusBar backgroundColor='black' style='light' />
             <ZegoUIKitPrebuiltCall
                 appID={43966995}
                 appSign={'95369a0439f94e2972a1a00bcb47f3b4d3766f28b253e7b50d98ad771f49362b'}

@@ -1,4 +1,4 @@
-import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView } from 'react-native'
+import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import React, { useState, useLayoutEffect } from 'react'
 import { Button, Input, Text, Image } from '@rneui/themed'
 import { auth } from "./firebase.js"
@@ -30,7 +30,7 @@ export default function HomeMain({ navigation, route }) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <View style={styles.container}>
-      <Image source={require('./image/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 20, marginTop: 10 }} />
+      <Image source={require('./assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 20, marginTop: 10 }} />
       <Text h3 style={{ color: '#696969', marginBottom: 12 }}>All your meetings!</Text>
             <Button
               title="Create a new meeting"

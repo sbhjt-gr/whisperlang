@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StatusBar, ImageBackground, StyleSheet, Dimensions  } from 'react-native';
+import { ImageBackground, StyleSheet, Dimensions  } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeMain from './HomeMain.js';
 import LoginScreen from './registration/LoginScreen.js';
@@ -19,9 +20,9 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   return (
     <NavigationContainer theme={{...DefaultTheme, colors: {...DefaultTheme.colors, background: 'rgba(64,171,250, 0.15'}}}>
-      <StatusBar backgroundColor='#4875FF' barStyle='light-content' />
+      <StatusBar backgroundColor='#4875FF' style='light' />
         <SafeAreaProvider>
-          <ImageBackground style={{height: screenHeight, width: screenWidth}} source={require('./image/background.jpg')} resizeMode="cover">
+                      <ImageBackground style={{height: screenHeight, width: screenWidth}} source={require('./assets/background.jpg')} resizeMode="cover">
             <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#4875FF'}, headerTintColor: '#fff'}} initialRouteName="LoginScreen">
               <Stack.Screen name = "LoginScreen" component = {LoginScreen} options = {{title: 'Log into your account!'}} 
               /><Stack.Screen
