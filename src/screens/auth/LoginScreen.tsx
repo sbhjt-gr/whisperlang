@@ -2,15 +2,10 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform} from 'react-native';
 import { Button, Input, Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { auth } from "../firebase";
+import { auth } from "../../config/firebase";
 import { signInWithEmailAndPassword, User } from 'firebase/auth';
 import * as Progress from 'react-native-progress';
-
-type RootStackParamList = {
-  LoginScreen: undefined;
-  HomeMain: { signedUp?: number };
-  RegName: undefined;
-};
+import { RootStackParamList } from '../../types/navigation';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'LoginScreen'>;
 
@@ -46,13 +41,13 @@ export default function LoginScreen({ navigation }: Props) {
   
   useEffect(() => {
     setIsLoading(true);
-    const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
-        if(authUser) {
-            navigation.replace('HomeMain', {signedUp: 0});
-        } else {
-          setIsLoading(false);
-        }
-    });
+         const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
+         if(authUser) {
+             navigation.replace('HomeScreen', {signedUp: 0});
+         } else {
+           setIsLoading(false);
+         }
+     });
     return unsubscribe;
     }, []);
     
@@ -64,7 +59,7 @@ export default function LoginScreen({ navigation }: Props) {
         <Progress.Bar width={width*.6} indeterminate={true}  />
         </View>
       </Modal>
-      <Image source={require('../assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 26 }} />
+             <Image source={require('../../../assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 26 }} />
       <Text h3 style={{ color: '#696969', marginBottom: -33 }}>Log into your account{'\n'}</Text>
       <Text style={{ color: '#696969', marginBottom: 30, fontSize: 13 }}>(Project done under Bengal Institute of Technology)</Text>
       <Input 

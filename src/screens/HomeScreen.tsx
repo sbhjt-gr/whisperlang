@@ -3,23 +3,18 @@ import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } fr
 import { Button, Input, Text, Image } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { auth } from "./firebase";
+import { auth } from "../config/firebase";
+import { RootStackParamList } from '../types/navigation';
 
-type RootStackParamList = {
-  HomeMain: { signedUp?: number };
-  VideoCallPage: { id: number; type?: number };
-  LoginScreen: undefined;
-};
-
-type HomeMainNavigationProp = StackNavigationProp<RootStackParamList, 'HomeMain'>;
-type HomeMainRouteProp = RouteProp<RootStackParamList, 'HomeMain'>;
+type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'HomeScreen'>;
+type HomeScreenRouteProp = RouteProp<RootStackParamList, 'HomeScreen'>;
 
 interface Props {
-  navigation: HomeMainNavigationProp;
-  route: HomeMainRouteProp;
+  navigation: HomeScreenNavigationProp;
+  route: HomeScreenRouteProp;
 }
 
-export default function HomeMain({ navigation, route }: Props) {
+export default function HomeScreen({ navigation, route }: Props) {
   const [id, setID] = useState<string>('');
   
   useLayoutEffect(() => {
@@ -36,14 +31,14 @@ export default function HomeMain({ navigation, route }: Props) {
   
   const meet = (): void => {
     if (id) {
-      navigation.navigate('VideoCallPage', {id: parseInt(id), type: 1});
+      navigation.navigate('VideoCallScreen', {id: parseInt(id), type: 1});
     } else {
       alert("Enter the meeting ID!");
     }
   };
   
   const createMeeting = (): void => {
-    navigation.navigate('VideoCallPage', { id: (Math.floor(Math.random() * 1000000) + 1)});
+    navigation.navigate('VideoCallScreen', { id: (Math.floor(Math.random() * 1000000) + 1)});
   };
   
   const LogOut = async (): Promise<void> => {
@@ -55,7 +50,7 @@ export default function HomeMain({ navigation, route }: Props) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.container}>
-        <Image source={require('./assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 20, marginTop: 10 }} />
+        <Image source={require('../../assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 20, marginTop: 10 }} />
         <Text h3 style={{ color: '#696969', marginBottom: 12 }}>All your meetings!</Text>
         <Button
           title="Create a new meeting"

@@ -4,18 +4,19 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ImageBackground, StyleSheet, Dimensions  } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import HomeMain from './HomeMain';
-import LoginScreen from './registration/LoginScreen';
-import RegName from './registration/RegName';
-import RegNumber from './registration/RegNumber';
-import RegEmailID from './registration/RegEmailID';
-import RegPassword from './registration/RegPassword';
-import { auth } from "./firebase"
-import VideoCallPage from './VideoCallPage';
+import HomeScreen from './src/screens/HomeScreen';
+import LoginScreen from './src/screens/auth/LoginScreen';
+import RegName from './src/screens/auth/RegName';
+import RegNumber from './src/screens/auth/RegNumber';
+import RegEmailID from './src/screens/auth/RegEmailID';
+import RegPassword from './src/screens/auth/RegPassword';
+import { auth } from "./src/config/firebase"
+import VideoCallScreen from './src/screens/VideoCallScreen';
+import { RootStackParamList } from './src/types/navigation';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
@@ -26,8 +27,8 @@ export default function App() {
             <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#4875FF'}, headerTintColor: '#fff'}} initialRouteName="LoginScreen">
               <Stack.Screen name = "LoginScreen" component = {LoginScreen} options = {{title: 'Log into your account!'}} 
               /><Stack.Screen
-                name = "HomeMain"
-                component = {HomeMain}
+                name = "HomeScreen"
+                component = {HomeScreen}
                 options = {{title: 'Welcome, ' + auth?.currentUser?.displayName + '!'}} />
                 <Stack.Screen
                 name = "RegName"
@@ -46,8 +47,8 @@ export default function App() {
                 component = {RegPassword}
                 options = {{title: 'Create a Password'}}
                 /><Stack.Screen
-                name = "VideoCallPage" 
-                component = {VideoCallPage}
+                name = "VideoCallScreen" 
+                component = {VideoCallScreen}
                 options={{ headerShown: false }}
               />
           </Stack.Navigator>

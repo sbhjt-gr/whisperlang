@@ -3,14 +3,10 @@ import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensio
 import { Button, Input, Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { auth } from "../firebase";
+import { auth } from "../../config/firebase";
 import { createUserWithEmailAndPassword, updateProfile, User } from 'firebase/auth';
 import * as Progress from 'react-native-progress';
-
-type RootStackParamList = {
-  RegPassword: { email: string; name: string };
-  HomeMain: { signedUp: number };
-};
+import { RootStackParamList } from '../../types/navigation';
 
 type RegPasswordNavigationProp = StackNavigationProp<RootStackParamList, 'RegPassword'>;
 type RegPasswordRouteProp = RouteProp<RootStackParamList, 'RegPassword'>;
@@ -43,11 +39,11 @@ export default function RegPassword({ navigation, route }: Props) {
   };
   
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
-        if(authUser) {
-            navigation.replace('HomeMain', {signedUp: 1});
-        }
-    });
+         const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
+         if(authUser) {
+             navigation.replace('HomeScreen', {signedUp: 1});
+         }
+     });
     return unsubscribe;
     }, []);
     

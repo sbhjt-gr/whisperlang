@@ -2,14 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { Button, Input, Text} from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { auth } from "../firebase";
+import { auth } from "../../config/firebase";
 import { User } from 'firebase/auth';
-
-type RootStackParamList = {
-  RegName: undefined;
-  RegEmailID: { name: string };
-  HomeMain: undefined;
-};
+import { RootStackParamList } from '../../types/navigation';
 
 type RegNameNavigationProp = StackNavigationProp<RootStackParamList, 'RegName'>;
 
@@ -21,11 +16,11 @@ export default function RegName({ navigation }: Props) {
   const [name, setName] = useState<string>("");
   
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
-        if(authUser) {
-            navigation.replace('HomeMain');
-        }
-    });
+         const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
+         if(authUser) {
+             navigation.replace('HomeScreen', {});
+         }
+     });
     return unsubscribe;
     }, []);
     

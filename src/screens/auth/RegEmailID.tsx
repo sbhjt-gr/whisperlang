@@ -3,14 +3,9 @@ import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { Button, Input, Text} from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { auth } from "../firebase";
+import { auth } from "../../config/firebase";
 import { User } from 'firebase/auth';
-
-type RootStackParamList = {
-  RegEmailID: { name: string; number?: string };
-  RegPassword: { email: string; name: string };
-  HomeMain: undefined;
-};
+import { RootStackParamList } from '../../types/navigation';
 
 type RegEmailIDNavigationProp = StackNavigationProp<RootStackParamList, 'RegEmailID'>;
 type RegEmailIDRouteProp = RouteProp<RootStackParamList, 'RegEmailID'>;
@@ -24,11 +19,11 @@ export default function RegEmailID({ navigation, route }: Props) {
     const [email, setEmail] = useState<string>("");
     
     useEffect(() => {
-      const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
-          if(authUser) {
-              navigation.replace('HomeMain');
-          }
-      });
+             const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
+           if(authUser) {
+               navigation.replace('HomeScreen', {});
+           }
+       });
       return unsubscribe;
       }, []);
   

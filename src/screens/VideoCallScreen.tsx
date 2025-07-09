@@ -4,22 +4,18 @@ import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { auth } from "./firebase";
+import { auth } from "../config/firebase";
+import { RootStackParamList } from '../types/navigation';
 
-type RootStackParamList = {
-  HomeMain: { signedUp?: number };
-  VideoCallPage: { id: number; type?: number };
-};
-
-type VideoCallPageNavigationProp = StackNavigationProp<RootStackParamList, 'VideoCallPage'>;
-type VideoCallPageRouteProp = RouteProp<RootStackParamList, 'VideoCallPage'>;
+type VideoCallScreenNavigationProp = StackNavigationProp<RootStackParamList, 'VideoCallScreen'>;
+type VideoCallScreenRouteProp = RouteProp<RootStackParamList, 'VideoCallScreen'>;
 
 interface Props {
-  navigation: VideoCallPageNavigationProp;
-  route: VideoCallPageRouteProp;
+  navigation: VideoCallScreenNavigationProp;
+  route: VideoCallScreenRouteProp;
 }
 
-export default function VoiceCallPage({ navigation, route }: Props) {
+export default function VideoCallScreen({ navigation, route }: Props) {
     useLayoutEffect(() => {
         if(!route.params.type) {
             alert("Your meeting ID is: " + route.params.id + "\nShare with only the people needed!");
@@ -37,8 +33,8 @@ export default function VoiceCallPage({ navigation, route }: Props) {
                 callID={route.params.id.toString()}
                 config={{
                     ...GROUP_VIDEO_CALL_CONFIG,
-                    onOnlySelfInRoom: () => { navigation.navigate('HomeMain') },
-                    onHangUp: () => { navigation.navigate('HomeMain') },
+                    onOnlySelfInRoom: () => { navigation.navigate('HomeScreen', {}) },
+                    onHangUp: () => { navigation.navigate('HomeScreen', {}) },
                 }}
             />
         </View>
