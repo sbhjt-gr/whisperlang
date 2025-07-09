@@ -1,4 +1,3 @@
-import 'expo/build/Expo.fx';
 import { registerRootComponent } from 'expo';
 import { activateKeepAwakeAsync } from 'expo-keep-awake';
 
