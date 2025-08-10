@@ -1,10 +1,10 @@
 {
-  "name": "WhisperLang",
+  "name": "whisperlang",
   "version": "1.0.1",
   "private": true,
   "main": "expo/AppEntry.ts",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

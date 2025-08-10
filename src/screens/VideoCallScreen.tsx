@@ -137,7 +137,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           ]}
         >
           <LinearGradient
-            colors={['#00d4aa', '#0066cc']}
+            colors={['#8b5cf6', '#ec4899']}
             style={styles.myStreamGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -171,7 +171,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         >
           <GradientCard colors={['rgba(0,212,170,0.3)', 'rgba(0,102,204,0.3)']} glassmorphism>
             <View style={styles.callingContent}>
-              <ActivityIndicator color="#00d4aa" size="large" />
+              <ActivityIndicator color="#8b5cf6" size="large" />
               <Text style={styles.callingText}>
                 Calling {remoteUser?.username || auth.currentUser?.displayName}
               </Text>
@@ -215,7 +215,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <Ionicons name="camera-reverse" size={24} color="#00d4aa" />
+                <Ionicons name="camera-reverse" size={24} color="#8b5cf6" />
               </LinearGradient>
             </TouchableOpacity>
             
@@ -232,7 +232,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
                 <Ionicons
                   name={isMuted ? 'mic-off' : 'mic'}
                   size={24}
-                  color={isMuted ? '#ffffff' : '#00d4aa'}
+                  color={isMuted ? '#ffffff' : '#8b5cf6'}
                 />
               </LinearGradient>
             </TouchableOpacity>

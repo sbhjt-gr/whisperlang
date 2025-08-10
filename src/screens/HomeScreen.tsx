@@ -77,7 +77,7 @@ export default function HomeScreen({ navigation, route }: Props) {
               }
             ]}
           >
-            <GradientCard colors={['#00d4aa', '#0066cc']} style={styles.startCallCard}>
+            <GradientCard colors={['#8b5cf6', '#ec4899']} style={styles.startCallCard}>
               <Text style={styles.cardTitle}>Start New Call</Text>
               <Text style={styles.cardSubtitle}>Begin a secure video call with anyone</Text>
               

@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
   },
   focusedContainer: {
-    borderColor: '#00d4aa',
+    borderColor: '#8b5cf6',
     borderWidth: 2,
   },
   icon: {

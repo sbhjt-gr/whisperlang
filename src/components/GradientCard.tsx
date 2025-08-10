@@ -12,7 +12,7 @@ interface GradientCardProps {
 
 const GradientCard: React.FC<GradientCardProps> = ({
   children,
-  colors = ['#00d4aa', '#0066cc'],
+  colors = ['#8b5cf6', '#ec4899'],
   style,
   onPress,
   glassmorphism = false

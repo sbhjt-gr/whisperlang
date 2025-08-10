@@ -13,7 +13,7 @@ interface AnimatedHeaderProps {
 const AnimatedHeader: React.FC<AnimatedHeaderProps> = ({
   title,
   subtitle,
-  colors = ['#00d4aa', '#0066cc'],
+  colors = ['#8b5cf6', '#ec4899'],
   children
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;

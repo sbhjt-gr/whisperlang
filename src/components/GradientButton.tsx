@@ -29,7 +29,7 @@ const GradientButton: React.FC<GradientButtonProps> = ({
   const getVariantColors = (): [string, string] => {
     switch (variant) {
       case 'primary':
-        return ['#00d4aa', '#0066cc'];
+        return ['#8b5cf6', '#ec4899'];
       case 'secondary':
         return ['#11998e', '#38ef7d'];
       case 'danger':
@@ -37,7 +37,7 @@ const GradientButton: React.FC<GradientButtonProps> = ({
       case 'success':
         return ['#38ef7d', '#11998e'];
       default:
-        return ['#00d4aa', '#0066cc'];
+        return ['#8b5cf6', '#ec4899'];
     }
   };
 

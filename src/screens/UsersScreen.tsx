@@ -60,7 +60,7 @@ const UsersScreen = ({navigation}: Props) => {
     >
       <TouchableOpacity onPress={() => onCall(item)} style={styles.userItem}>
         <LinearGradient
-          colors={['#00d4aa', '#0066cc']}
+          colors={['#8b5cf6', '#ec4899']}
           style={styles.userGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}

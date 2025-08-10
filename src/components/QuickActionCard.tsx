@@ -15,7 +15,7 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({
   title,
   subtitle,
   icon,
-  colors = ['#00d4aa', '#0066cc'],
+  colors = ['#8b5cf6', '#ec4899'],
   onPress
 }) => {
   return (

@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, Alert } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, Alert, TouchableOpacity, StatusBar, TextInput } from 'react-native';
 import { Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as Progress from 'react-native-progress';
 import { RootStackParamList } from '../../types/navigation';
-import AnimatedHeader from '../../components/AnimatedHeader';
-import GradientButton from '../../components/GradientButton';
-import GlassInput from '../../components/GlassInput';
-import GradientCard from '../../components/GradientCard';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RegisterScreen'>;
 
@@ -41,20 +40,31 @@ export default function RegisterScreen({ navigation }: Props) {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  const [focusedField, setFocusedField] = useState<string>('');
   const { width } = useWindowDimensions();
+  
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const logoScale = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 1000,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
         useNativeDriver: true,
       }),
     ]).start();
@@ -120,11 +130,57 @@ export default function RegisterScreen({ navigation }: Props) {
     }
   };
 
+  const renderInput = (
+    placeholder: string,
+    field: keyof FormData,
+    icon: keyof typeof Ionicons.glyphMap,
+    isPassword: boolean = false,
+    keyboardType: 'default' | 'email-address' | 'phone-pad' = 'default'
+  ) => {
+    const focused = focusedField === field;
+    const error = errors[field];
+    const showPasswordIcon = isPassword && (field === 'password' ? showPassword : showConfirmPassword);
+    
+    return (
+      <Animated.View style={[styles.inputContainer, { opacity: fadeAnim }]}>
+        <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused, error && styles.inputWrapperError]}>
+          <Ionicons name={icon} size={20} color={focused ? '#10b981' : '#9ca3af'} style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInput}
+            placeholder={placeholder}
+            placeholderTextColor="#9ca3af"
+            value={formData[field]}
+            onChangeText={(text) => updateFormData(field, text)}
+            secureTextEntry={isPassword && !showPasswordIcon}
+            keyboardType={keyboardType}
+            autoCapitalize="none"
+            onFocus={() => setFocusedField(field)}
+            onBlur={() => setFocusedField('')}
+            onSubmitEditing={field === 'confirmPassword' ? handleRegister : undefined}
+          />
+          {isPassword && (
+            <TouchableOpacity 
+              onPress={() => field === 'password' ? setShowPassword(!showPassword) : setShowConfirmPassword(!showConfirmPassword)} 
+              style={styles.eyeIcon}
+            >
+              <Ionicons 
+                name={showPasswordIcon ? 'eye-off-outline' : 'eye-outline'} 
+                size={20} 
+                color="#9ca3af" 
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+        {error && <Text style={styles.errorText}>{error}</Text>}
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Modal visible={isLoading} transparent>
         <View style={styles.modal}>
-          <Progress.Bar width={width * 0.6} indeterminate={true} color="#00d4aa" />
+          <Progress.Bar width={width * 0.6} indeterminate={true} color="#8b5cf6" />
         </View>
       </Modal>
 
