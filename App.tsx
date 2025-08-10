@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import HomeScreen from './src/screens/HomeScreen';
+import TabNavigator from './src/screens/TabNavigator';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import UsersScreen from './src/screens/UsersScreen';
@@ -59,7 +59,7 @@ export default function App() {
             />
             <Stack.Screen
               name="HomeScreen"
-              component={HomeScreen}
+              component={TabNavigator}
             />
             <Stack.Screen
               name="UsersScreen"

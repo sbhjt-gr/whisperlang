@@ -1,14 +1,12 @@
 import React, { useState, useLayoutEffect, useRef, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Animated, TouchableOpacity, StatusBar, TextInput, Alert } from 'react-native';
 import { Text, Image } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
-import AnimatedHeader from '../components/AnimatedHeader';
-import GradientButton from '../components/GradientButton';
-import GlassInput from '../components/GlassInput';
-import QuickActionCard from '../components/QuickActionCard';
-import GradientCard from '../components/GradientCard';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth } from '../config/firebase';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'HomeScreen'>;
@@ -21,14 +19,16 @@ interface Props {
 
 export default function HomeScreen({ navigation, route }: Props) {
   const [id, setID] = useState<string>('');
+  const [focusedField, setFocusedField] = useState<string>('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
+  const logoScale = useRef(new Animated.Value(0.5)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 1000,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
@@ -36,14 +36,20 @@ export default function HomeScreen({ navigation, route }: Props) {
         duration: 800,
         useNativeDriver: true,
       }),
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, []);
   
   const meet = (): void => {
-    if (id) {
+    if (id.trim()) {
       navigation.navigate('VideoCallScreen', {id: parseInt(id), type: 1});
     } else {
-      alert("Enter the meeting ID!");
+      Alert.alert("Missing Meeting ID", "Please enter a valid meeting ID to join the call.");
     }
   };
   
@@ -52,46 +58,109 @@ export default function HomeScreen({ navigation, route }: Props) {
   };
   
   const LogOut = async (): Promise<void> => {
-    await auth.signOut().then(() => {
-      navigation.replace("LoginScreen");
-    });
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Sign Out", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await auth.signOut();
+              navigation.replace("LoginScreen");
+            } catch (error) {
+              Alert.alert("Error", "Failed to sign out. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
   
   return (
-    <View style={styles.container}>
-      <AnimatedHeader
-        title="WhisperLang"
-        subtitle="Connect through secure video calls"
-      >
-        <Image source={require('../../assets/video-call-blue.png')} style={styles.headerImage} />
-      </AnimatedHeader>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      
+      {/* Floating circles for visual appeal */}
+      <View style={[styles.floatingCircle, styles.circle1]} />
+      <View style={[styles.floatingCircle, styles.circle2]} />
+      <View style={[styles.floatingCircle, styles.circle3]} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Animated.View
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
+          {/* Header Section */}
+          <Animated.View 
             style={[
-              styles.mainCard,
+              styles.headerSection,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: logoScale }]
+              }
+            ]}
+          >
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../assets/video-call-blue.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.welcomeTitle}>Welcome to WhisperLang</Text>
+            <Text style={styles.welcomeSubtitle}>Connect through secure video calls</Text>
+          </Animated.View>
+
+          {/* Quick Start Section */}
+          <Animated.View 
+            style={[
+              styles.quickStartSection,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }]
               }
             ]}
           >
-            <GradientCard colors={['#8b5cf6', '#ec4899']} style={styles.startCallCard}>
-              <Text style={styles.cardTitle}>Start New Call</Text>
-              <Text style={styles.cardSubtitle}>Begin a secure video call with anyone</Text>
-              
-              <GradientButton
-                title="Start WebRTC Video Call"
-                onPress={createMeeting}
-                icon="videocam"
-                colors={['#38ef7d', '#11998e']}
-                style={styles.startButton}
-              />
-            </GradientCard>
+            <View style={styles.quickStartCard}>
+              <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                style={styles.startCallGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="videocam-outline" size={32} color="#ffffff" style={styles.startCallIcon} />
+                <Text style={styles.startCallTitle}>Start New Call</Text>
+                <Text style={styles.startCallSubtitle}>Begin a secure video call with anyone</Text>
+                
+                <TouchableOpacity 
+                  style={styles.startCallButton}
+                  onPress={createMeeting}
+                >
+                  <Text style={styles.startCallButtonText}>Start a Video Call</Text>
+                  <Ionicons name="arrow-forward" size={20} color="#667eea" />
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
           </Animated.View>
 
-          <Animated.View
+          {/* Join Meeting Section */}
+          <Animated.View 
             style={[
               styles.joinSection,
               {
@@ -100,28 +169,47 @@ export default function HomeScreen({ navigation, route }: Props) {
               }
             ]}
           >
-            <Text style={styles.sectionTitle}>Join Meeting</Text>
-            
-            <GlassInput
-              placeholder="Enter meeting ID"
-              value={id}
-              onChangeText={(text: string) => setID(text)}
-              keyboardType="decimal-pad"
-              icon="enter-outline"
-              containerStyle={styles.inputContainer}
-            />
-            
-            <GradientButton
-              title="Join Meeting"
-              onPress={meet}
-              icon="log-in"
-              style={styles.joinButton}
-            />
+            <View style={styles.joinCard}>
+              <Text style={styles.sectionTitle}>Join Meeting</Text>
+              <Text style={styles.sectionSubtitle}>Enter a meeting ID to join an existing call</Text>
+              
+              <View style={[styles.inputWrapper, focusedField === 'meetingId' && styles.inputWrapperFocused]}>
+                <Ionicons name="enter-outline" size={20} color={focusedField === 'meetingId' ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter meeting ID"
+                  placeholderTextColor="#9ca3af"
+                  value={id}
+                  onChangeText={setID}
+                  keyboardType="decimal-pad"
+                  onFocus={() => setFocusedField('meetingId')}
+                  onBlur={() => setFocusedField('')}
+                  onSubmitEditing={meet}
+                />
+              </View>
+              
+              <TouchableOpacity 
+                style={[styles.joinButton, !id.trim() && styles.joinButtonDisabled]}
+                onPress={meet}
+                disabled={!id.trim()}
+              >
+                <LinearGradient
+                  colors={id.trim() ? ['#667eea', '#764ba2'] : ['#9ca3af', '#6b7280']}
+                  style={styles.joinGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="log-in-outline" size={20} color="#ffffff" style={styles.buttonIcon} />
+                  <Text style={styles.joinButtonText}>Join Meeting</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
 
-          <Animated.View
+          {/* Quick Actions Section */}
+          <Animated.View 
             style={[
-              styles.quickActions,
+              styles.quickActionsSection,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }]
@@ -131,105 +219,335 @@ export default function HomeScreen({ navigation, route }: Props) {
             <Text style={styles.sectionTitle}>Quick Actions</Text>
             
             <View style={styles.actionsGrid}>
-              <QuickActionCard
-                title="Settings"
-                subtitle="App preferences"
-                icon="settings-outline"
-                colors={['#ff9a9e', '#fecfef']}
-                onPress={() => {}}
-              />
+              <TouchableOpacity style={styles.actionCard}>
+                <LinearGradient
+                  colors={['#ff9a9e', '#fecfef']}
+                  style={styles.actionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="settings-outline" size={24} color="#ffffff" />
+                  <Text style={styles.actionTitle}>Settings</Text>
+                  <Text style={styles.actionSubtitle}>App preferences</Text>
+                </LinearGradient>
+              </TouchableOpacity>
               
-              <QuickActionCard
-                title="History"
-                subtitle="Call logs"
-                icon="time-outline"
-                colors={['#a8edea', '#fed6e3']}
-                onPress={() => {}}
-              />
+              <TouchableOpacity style={styles.actionCard}>
+                <LinearGradient
+                  colors={['#a8edea', '#fed6e3']}
+                  style={styles.actionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="time-outline" size={24} color="#ffffff" />
+                  <Text style={styles.actionTitle}>History</Text>
+                  <Text style={styles.actionSubtitle}>Call logs</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
             
             <View style={styles.actionsGrid}>
-              <QuickActionCard
-                title="Contacts"
-                subtitle="Manage contacts"
-                icon="people-outline"
-                colors={['#11998e', '#38ef7d']}
-                onPress={() => {}}
-              />
+              <TouchableOpacity style={styles.actionCard}>
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.actionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="people-outline" size={24} color="#ffffff" />
+                  <Text style={styles.actionTitle}>Contacts</Text>
+                  <Text style={styles.actionSubtitle}>Manage contacts</Text>
+                </LinearGradient>
+              </TouchableOpacity>
               
-              <QuickActionCard
-                title="Log Out"
-                subtitle="Sign out"
-                icon="log-out-outline"
-                colors={['#ff6b6b', '#ee5a52']}
-                onPress={LogOut}
-              />
+              <TouchableOpacity style={styles.actionCard} onPress={LogOut}>
+                <LinearGradient
+                  colors={['#ff6b6b', '#ee5a52']}
+                  style={styles.actionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="log-out-outline" size={24} color="#ffffff" />
+                  <Text style={styles.actionTitle}>Sign Out</Text>
+                  <Text style={styles.actionSubtitle}>Log out</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#667eea',
   },
-  headerImage: {
-    width: 80,
-    height: 80,
-    marginTop: 10,
+  backgroundGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  content: {
+  floatingCircle: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 100,
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    top: -100,
+    right: -50,
+  },
+  circle2: {
+    width: 150,
+    height: 150,
+    bottom: 100,
+    left: -75,
+  },
+  circle3: {
+    width: 100,
+    height: 100,
+    top: 300,
+    left: 50,
+  },
+  scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   },
-  mainCard: {
-    marginTop: 20,
-    marginBottom: 30,
+  scrollContent: {
+    flexGrow: 1,
   },
-  startCallCard: {
+  keyboardView: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  headerSection: {
     alignItems: 'center',
-    padding: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
-  cardTitle: {
-    fontSize: 20,
+  logoContainer: {
+    width: 100,
+    height: 100,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+  },
+  welcomeTitle: {
+    fontSize: 28,
     fontWeight: '700',
     color: '#ffffff',
-    marginBottom: 8,
     textAlign: 'center',
+    marginBottom: 8,
   },
-  cardSubtitle: {
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  quickStartSection: {
+    marginBottom: 32,
+  },
+  quickStartCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  startCallGradient: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  startCallIcon: {
+    marginBottom: 16,
+  },
+  startCallTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  startCallSubtitle: {
     fontSize: 16,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 20,
     textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
   },
-  startButton: {
+  startCallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     width: '100%',
+    justifyContent: 'center',
+  },
+  startCallButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#667eea',
+    marginRight: 8,
+    letterSpacing: 0.5,
   },
   joinSection: {
-    marginBottom: 30,
+    marginBottom: 32,
+  },
+  joinCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1f2937',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  inputContainer: {
-    marginBottom: 16,
+  sectionSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: 20,
+  },
+  inputWrapperFocused: {
+    borderColor: '#667eea',
+    backgroundColor: '#ffffff',
+    shadowColor: '#667eea',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '500',
   },
   joinButton: {
-    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#667eea',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  quickActions: {
-    marginBottom: 30,
+  joinButtonDisabled: {
+    opacity: 0.6,
+  },
+  joinGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  joinButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  quickActionsSection: {
+    marginBottom: 40,
   },
   actionsGrid: {
     flexDirection: 'row',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  actionGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    minHeight: 100,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
   },
 }); 
