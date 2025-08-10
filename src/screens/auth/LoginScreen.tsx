@@ -151,8 +151,8 @@ export default function LoginScreen({ navigation }: Props) {
   );
     
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Background Gradient */}
       <LinearGradient
@@ -167,7 +167,8 @@ export default function LoginScreen({ navigation }: Props) {
       <View style={[styles.floatingCircle, styles.circle2]} />
       <View style={[styles.floatingCircle, styles.circle3]} />
       
-      {isLoading && (
+      <SafeAreaView style={styles.safeArea}>
+        {isLoading && (
         <Modal visible={isLoading} transparent>
           <View style={styles.modal}>
             <View style={styles.modalContent}>
@@ -295,14 +296,18 @@ export default function LoginScreen({ navigation }: Props) {
           </Animated.View>
         </KeyboardAvoidingView>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#667eea',
+    backgroundColor: 'transparent',
+  },
+  safeArea: {
+    flex: 1,
   },
   backgroundGradient: {
     position: 'absolute',

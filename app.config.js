@@ -8,6 +8,9 @@ export default {
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
+    permissions: [
+      "CONTACTS"
+    ],
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -18,14 +21,20 @@ export default {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.gorai.whisperlang"
+      bundleIdentifier: "com.gorai.whisperlang",
+      infoPlist: {
+        NSContactsUsageDescription: "WhisperLang needs access to your contacts to help you connect with friends and family for video calls."
+      }
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.gorai.whisperlang"
+      package: "com.gorai.whisperlang",
+      permissions: [
+        "android.permission.READ_CONTACTS"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -58,6 +67,12 @@ export default {
           ios: {
             useFrameworks: "static"
           }
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          contactsPermission: "WhisperLang needs access to your contacts to help you connect with friends and family for video calls."
         }
       ]
     ]
