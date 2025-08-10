@@ -1,24 +1,27 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ImageBackground, StyleSheet, Dimensions  } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
-import RegName from './src/screens/auth/RegName';
-import RegNumber from './src/screens/auth/RegNumber';
-import RegEmailID from './src/screens/auth/RegEmailID';
-import RegPassword from './src/screens/auth/RegPassword';
+import RegisterScreen from './src/screens/auth/RegisterScreen';
 import UsersScreen from './src/screens/UsersScreen';
 import { initializeFirebase } from './src/services/FirebaseService';
 import VideoCallScreen from './src/screens/VideoCallScreen';
 import { RootStackParamList } from './src/types/navigation';
 import WebRTCProvider from './src/store/WebRTCProvider';
 
-const screenHeight = Dimensions.get('window').height;
-const screenWidth = Dimensions.get('window').width;
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const customTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#f8fafc',
+  },
+};
 
 export default function App() {
   useEffect(() => {
@@ -36,56 +39,47 @@ export default function App() {
 
   return (
     <WebRTCProvider>
-      <NavigationContainer theme={{...DefaultTheme, colors: {...DefaultTheme.colors, background: 'rgba(64,171,250, 0.15'}}}>
-        <StatusBar backgroundColor='#4875FF' style='light' />
-          <SafeAreaProvider>
-                        <ImageBackground style={{height: screenHeight, width: screenWidth}} source={require('./assets/background.jpg')} resizeMode="cover">
-              <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#4875FF'}, headerTintColor: '#fff'}} initialRouteName="LoginScreen">
-                <Stack.Screen name = "LoginScreen" component = {LoginScreen} options = {{title: 'Log into your account!'}} 
-                /><Stack.Screen
-                  name = "HomeScreen"
-                  component = {HomeScreen}
-                  options = {{title: 'Welcome to WhisperLang!'}} />
-                  <Stack.Screen
-                  name = "RegName"
-                  component = {RegName}
-                  options = {{title: 'Enter your name'}}
-                  /><Stack.Screen
-                  name = "RegNumber"
-                  component = {RegNumber}
-                  options = {{title: 'Enter your phone number'}}
-                  /><Stack.Screen
-                  name = "RegEmailID"
-                  component = {RegEmailID}
-                  options = {{title: 'Enter e-mail ID'}}
-                  /><Stack.Screen
-                  name = "RegPassword"
-                  component = {RegPassword}
-                  options = {{title: 'Create a Password'}}
-                  /><Stack.Screen
-                  name = "UsersScreen"
-                  component = {UsersScreen}
-                  options = {{title: 'Call Someone'}}
-                  /><Stack.Screen
-                  name = "VideoCallScreen" 
-                  component = {VideoCallScreen}
-                  options={{ headerShown: false }}
-                />
-            </Stack.Navigator>
-          </ImageBackground>
-        </SafeAreaProvider>
-      </NavigationContainer>
+      <SafeAreaProvider>
+        <NavigationContainer theme={customTheme}>
+          <StatusBar style="dark" />
+          <Stack.Navigator 
+            screenOptions={{ 
+              headerShown: false,
+              animation: 'slide_from_right'
+            }} 
+            initialRouteName="LoginScreen"
+          >
+            <Stack.Screen 
+              name="LoginScreen" 
+              component={LoginScreen} 
+            />
+            <Stack.Screen 
+              name="RegisterScreen" 
+              component={RegisterScreen} 
+            />
+            <Stack.Screen
+              name="HomeScreen"
+              component={HomeScreen}
+            />
+            <Stack.Screen
+              name="UsersScreen"
+              component={UsersScreen}
+            />
+            <Stack.Screen
+              name="VideoCallScreen" 
+              component={VideoCallScreen}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
     </WebRTCProvider>
-    );
+  );
 }
 
 const styles = StyleSheet.create({
-  imageBack: {
-    height: screenHeight,
-    width: screenWidth,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.5
-  }
-})
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+});
 

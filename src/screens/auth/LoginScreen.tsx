@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform} from 'react-native';
-import { Button, Input, Text } from '@rneui/themed';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated } from 'react-native';
+import { Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { loginWithEmail, initializeFirebase, onAuthStateChanged } from '../../services/FirebaseService';
+import { loginWithEmail, initializeFirebase } from '../../services/FirebaseService';
 import { getAuthInstance } from '../../services/FirebaseInstances';
 import * as Progress from 'react-native-progress';
 import { RootStackParamList } from '../../types/navigation';
+import AnimatedHeader from '../../components/AnimatedHeader';
+import GradientButton from '../../components/GradientButton';
+import GlassInput from '../../components/GlassInput';
+import GradientCard from '../../components/GradientCard';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'LoginScreen'>;
 
@@ -18,6 +22,23 @@ export default function LoginScreen({ navigation }: Props) {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const {width} = useWindowDimensions();
   const [password, setPassword] = useState<string>("");
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
   
   const signIn = async (): Promise<void> => {
     if (email && password) {
@@ -49,16 +70,15 @@ export default function LoginScreen({ navigation }: Props) {
         setIsLoading(true);
         await initializeFirebase();
         
-        import('@react-native-firebase/auth').then(({ default: auth }) => {
-          const unsubscribe = auth().onAuthStateChanged((authUser: any) => {
-            if (authUser) {
-              navigation.replace('HomeScreen', {signedUp: 0});
-            } else {
-              setIsLoading(false);
-            }
-          });
-          return unsubscribe;
+        const { default: auth } = await import('@react-native-firebase/auth');
+        const unsubscribe = auth().onAuthStateChanged((authUser: any) => {
+          if (authUser) {
+            navigation.replace('HomeScreen', {signedUp: 0});
+          } else {
+            setIsLoading(false);
+          }
         });
+        return unsubscribe;
       } catch (error) {
         setIsLoading(false);
         console.error('Firebase initialization failed:', error);
@@ -69,78 +89,144 @@ export default function LoginScreen({ navigation }: Props) {
   }, []);
     
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.container}>
+    <View style={styles.container}>
       <Modal visible={isLoading} transparent>
         <View style={styles.modal}>
-        <Progress.Bar width={width*.6} indeterminate={true}  />
+          <Progress.Bar width={width*.6} indeterminate={true} color="#00d4aa" />
         </View>
       </Modal>
-             <Image source={require('../../../assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 26 }} />
-      <Text h3 style={{ color: '#696969', marginBottom: -33 }}>Log into your account{'\n'}</Text>
-      <Text style={{ color: '#696969', marginBottom: 30, fontSize: 13 }}>(Project done under Bengal Institute of Technology)</Text>
-      <Input 
-        placeholder="E-mail ID" 
-        value={email} 
-        containerStyle={{ width: 370 }} 
-        onChangeText={(text: string) => setEmail(text)} 
-      />
-      <Input 
-        placeholder="Password" 
-        secureTextEntry 
-        value={password} 
-        onChangeText={(text: string) => setPassword(text)} 
-        onSubmitEditing={signIn} 
-        containerStyle={{
-          width: 370
-        }} 
-      />
-      <Button 
-        onPress={signIn} 
-        title="Log In" 
-        containerStyle={{
-          width: 350,
-          marginHorizontal: 50,
-          marginVertical: 10,
-        }} 
-        size="lg" 
-      />
-      <Button 
-        onPress={() => {
-          navigation.navigate('RegName');
-        }} 
-        title="Register" 
-        size="lg" 
-        type="outline" 
-        containerStyle={{
-          width: 350,
-          marginHorizontal: 50,
-          marginVertical: 10,
-        }} 
-      />
-      </View>
-    </KeyboardAvoidingView>
+      
+      <AnimatedHeader
+        title="Welcome Back"
+        subtitle="Sign in to your account"
+      >
+        <Image source={require('../../../assets/video-call-blue.png')} style={styles.headerImage} />
+      </AnimatedHeader>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Animated.View
+            style={[
+              styles.formContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <GradientCard colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.8)']} glassmorphism style={styles.loginCard}>
+              <Text style={styles.loginTitle}>Sign In</Text>
+              <Text style={styles.loginSubtitle}>Enter your credentials to continue</Text>
+              
+              <GlassInput
+                placeholder="Email Address"
+                value={email}
+                onChangeText={(text: string) => setEmail(text)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                icon="mail-outline"
+                containerStyle={styles.inputContainer}
+              />
+              
+              <GlassInput
+                placeholder="Password"
+                value={password}
+                onChangeText={(text: string) => setPassword(text)}
+                secureTextEntry
+                icon="lock-closed-outline"
+                containerStyle={styles.inputContainer}
+                onSubmitEditing={signIn}
+              />
+              
+              <GradientButton
+                title="Sign In"
+                onPress={signIn}
+                icon="log-in"
+                style={styles.loginButton}
+                disabled={isLoading}
+              />
+              
+              <View style={styles.divider} />
+              
+              <GradientButton
+                title="Create Account"
+                onPress={() => navigation.navigate('RegisterScreen')}
+                icon="person-add"
+                variant="secondary"
+                style={styles.registerButton}
+              />
+            </GradientCard>
+            
+            <Text style={styles.footerText}>
+              Project done under Bengal Institute of Technology
+            </Text>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    top: '9%',
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 1,
+    backgroundColor: '#f8fafc',
   },
-  input: {
+  headerImage: {
+    width: 80,
+    height: 80,
     marginTop: 10,
   },
-  button: {
-    marginTop: 10,
-    marginBottom: 10,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  formContainer: {
+    paddingTop: 30,
+    paddingBottom: 40,
+  },
+  loginCard: {
+    padding: 24,
+    marginBottom: 20,
+  },
+  loginTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  loginSubtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  loginButton: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginVertical: 20,
+  },
+  registerButton: {
+    width: '100%',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   modal: {
-    flex:1,
-    backgroundColor:'#eee',
-    opacity:.8,
-    alignItems:'center', 
-    justifyContent:'center',
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }); 
