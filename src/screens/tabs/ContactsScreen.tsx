@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { videoCallService } from '../../services/VideoCallService';
+import { useNavigation } from '@react-navigation/native';
 
 interface Contact {
   id: string;
@@ -21,6 +23,7 @@ interface ContactsScreenProps {
 }
 
 export default function ContactsScreen({ navigation }: ContactsScreenProps) {
+  const navigationHook = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   
@@ -177,8 +180,19 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps) {
     Linking.openURL(`tel:${cleanNumber}`);
   };
 
-  const handleVideoCall = (contact: Contact) => {
-    Alert.alert('Video Call', `Starting video call with ${contact.name}...`);
+  const handleVideoCall = async (contact: Contact) => {
+    try {
+      // Set navigation reference for the video call service
+      if (navigationHook) {
+        videoCallService.setNavigationRef({ current: navigationHook });
+      }
+      
+      // Start video call
+      await videoCallService.startVideoCall(contact);
+    } catch (error) {
+      console.error('Error starting video call:', error);
+      Alert.alert('Error', 'Failed to start video call. Please try again.');
+    }
   };
 
   const getInitials = (name: string) => {

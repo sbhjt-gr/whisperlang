@@ -3,6 +3,9 @@ import {MediaStream} from 'react-native-webrtc';
 export interface User {
   username: string;
   peerId: string;
+  id?: string;
+  name?: string;
+  phoneNumbers?: { number?: string; }[];
 }
 
 export interface WebRTCContext {
@@ -16,7 +19,7 @@ export interface WebRTCContext {
   setLocalStream?: React.Dispatch<React.SetStateAction<MediaStream | null>>;
   remoteStream: MediaStream | null;
   setRemoteStream?: React.Dispatch<React.SetStateAction<MediaStream | null>>;
-  initialize: () => void;
+  initialize: (username?: string) => void;
   call: (user: User) => void;
   switchCamera: () => void;
   toggleMute: () => void;

@@ -10,8 +10,10 @@ import RegisterScreen from './src/screens/auth/RegisterScreen';
 import UsersScreen from './src/screens/UsersScreen';
 import { initializeFirebase } from './src/services/FirebaseService';
 import VideoCallScreen from './src/screens/VideoCallScreen';
+import InstantCallScreen from './src/screens/InstantCallScreen';
 import { RootStackParamList } from './src/types/navigation';
 import WebRTCProvider from './src/store/WebRTCProvider';
+import WebRTCInitializer from './src/components/WebRTCInitializer';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -39,39 +41,45 @@ export default function App() {
 
   return (
     <WebRTCProvider>
-      <SafeAreaProvider>
-        <NavigationContainer theme={customTheme}>
-          <StatusBar style="dark" />
-          <Stack.Navigator 
-            screenOptions={{ 
-              headerShown: false,
-              animation: 'slide_from_right'
-            }} 
-            initialRouteName="LoginScreen"
-          >
-            <Stack.Screen 
-              name="LoginScreen" 
-              component={LoginScreen} 
-            />
-            <Stack.Screen 
-              name="RegisterScreen" 
-              component={RegisterScreen} 
-            />
-            <Stack.Screen
-              name="HomeScreen"
-              component={TabNavigator}
-            />
-            <Stack.Screen
-              name="UsersScreen"
-              component={UsersScreen}
-            />
-            <Stack.Screen
-              name="VideoCallScreen" 
-              component={VideoCallScreen}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <WebRTCInitializer>
+        <SafeAreaProvider>
+          <NavigationContainer theme={customTheme}>
+            <StatusBar style="dark" />
+            <Stack.Navigator 
+              screenOptions={{ 
+                headerShown: false,
+                animation: 'slide_from_right'
+              }} 
+              initialRouteName="LoginScreen"
+            >
+              <Stack.Screen 
+                name="LoginScreen" 
+                component={LoginScreen} 
+              />
+              <Stack.Screen 
+                name="RegisterScreen" 
+                component={RegisterScreen} 
+              />
+              <Stack.Screen
+                name="HomeScreen"
+                component={TabNavigator}
+              />
+              <Stack.Screen
+                name="UsersScreen"
+                component={UsersScreen}
+              />
+              <Stack.Screen
+                name="VideoCallScreen" 
+                component={VideoCallScreen}
+              />
+              <Stack.Screen
+                name="InstantCallScreen"
+                component={InstantCallScreen}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </WebRTCInitializer>
     </WebRTCProvider>
   );
 }

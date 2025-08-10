@@ -49,12 +49,15 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     initialValues.remoteStream,
   );
   const [remoteUser, setRemoteUser] = useState<User | null>(null);
-  const [socket, setSocket] = useState<SocketIOClient.Socket | null>(null);
+  const [socket, setSocket] = useState<any>(null);
   const [peerServer, setPeerServer] = useState<any>(null);
   const [isMuted, setIsMuted] = useState(initialValues.isMuted);
   const [activeCall, setActiveCall] = useState<any>(null);
 
-  const initialize = async () => {
+  const initialize = async (currentUsername?: string) => {
+    if (currentUsername) {
+      setUsername(currentUsername);
+    }
     const isFrontCamera = true;
     const devices = await mediaDevices.enumerateDevices();
 
@@ -86,7 +89,8 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     io.on('connect', () => {
       setSocket(io);
-      io.emit('register', username);
+      const finalUsername = currentUsername || username;
+      io.emit('register', finalUsername);
     });
 
     io.on('users-change', (users: User[]) => {
@@ -158,6 +162,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
                 io.emit('accept-call', user?.username);
                 call.answer(newStream);
                 setActiveCall(call);
+                // Navigation will be handled by the calling component
               },
             },
           ],
