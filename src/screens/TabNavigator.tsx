@@ -86,8 +86,8 @@ export default function TabNavigator({ navigation, route }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" backgroundColor="#667eea" />
+    <View style={styles.container}>
+      <StatusBar style="light" backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.headerContainer}>
@@ -97,25 +97,27 @@ export default function TabNavigator({ navigation, route }: Props) {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <View style={styles.headerContent}>
-            <View style={styles.headerLeft}>
-              <View style={styles.logoContainer}>
-                <Ionicons name="videocam" size={20} color="#ffffff" />
-              </View>
-              <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
-            </View>
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerButton}>
-                <Ionicons name="search-outline" size={20} color="#ffffff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerButton}>
-                <Ionicons name="notifications-outline" size={20} color="#ffffff" />
-                <View style={styles.notificationBadge}>
-                  <View style={styles.notificationDot} />
+          <SafeAreaView edges={['top']}>
+            <View style={styles.headerContent}>
+              <View style={styles.headerLeft}>
+                <View style={styles.logoContainer}>
+                  <Ionicons name="videocam" size={20} color="#ffffff" />
                 </View>
-              </TouchableOpacity>
+                <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+              </View>
+              <View style={styles.headerRight}>
+                <TouchableOpacity style={styles.headerButton}>
+                  <Ionicons name="search-outline" size={20} color="#ffffff" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerButton}>
+                  <Ionicons name="notifications-outline" size={20} color="#ffffff" />
+                  <View style={styles.notificationBadge}>
+                    <View style={styles.notificationDot} />
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </SafeAreaView>
         </LinearGradient>
       </View>
 
@@ -125,37 +127,39 @@ export default function TabNavigator({ navigation, route }: Props) {
       </View>
 
       {/* Custom Tab Bar */}
-      <View style={styles.tabBar}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={styles.tabItem}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <View style={[styles.tabIconContainer, activeTab === tab.key && styles.tabIconContainerActive]}>
-              <Ionicons
-                name={activeTab === tab.key ? tab.iconFocused : tab.icon}
-                size={22}
-                color={activeTab === tab.key ? '#667eea' : '#9ca3af'}
-              />
-            </View>
-            <Text style={[
-              styles.tabLabel,
-              activeTab === tab.key && styles.tabLabelActive
-            ]}>
-              {tab.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </SafeAreaView>
+      <SafeAreaView edges={['bottom']}>
+        <View style={styles.tabBar}>
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              style={styles.tabItem}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              <View style={[styles.tabIconContainer, activeTab === tab.key && styles.tabIconContainerActive]}>
+                <Ionicons
+                  name={activeTab === tab.key ? tab.iconFocused : tab.icon}
+                  size={22}
+                  color={activeTab === tab.key ? '#667eea' : '#9ca3af'}
+                />
+              </View>
+              <Text style={[
+                styles.tabLabel,
+                activeTab === tab.key && styles.tabLabelActive
+              ]}>
+                {tab.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
   },
   headerContainer: {
     shadowColor: '#000',
@@ -166,16 +170,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
+    zIndex: 1000,
   },
   headerGradient: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'ios' ? 16 : 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 16,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -224,6 +230,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: '#f8fafc',
+    marginTop: -12,
   },
   tabBar: {
     flexDirection: 'row',
@@ -231,7 +238,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
     paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: {
