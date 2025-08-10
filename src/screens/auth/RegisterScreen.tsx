@@ -144,7 +144,7 @@ export default function RegisterScreen({ navigation }: Props) {
     return (
       <Animated.View style={[styles.inputContainer, { opacity: fadeAnim }]}>
         <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused, error && styles.inputWrapperError]}>
-          <Ionicons name={icon} size={20} color={focused ? '#10b981' : '#9ca3af'} style={styles.inputIcon} />
+          <Ionicons name={icon} size={20} color={focused ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
           <TextInput
             style={styles.textInput}
             placeholder={placeholder}
@@ -177,176 +177,375 @@ export default function RegisterScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <Modal visible={isLoading} transparent>
-        <View style={styles.modal}>
-          <Progress.Bar width={width * 0.6} indeterminate={true} color="#8b5cf6" />
-        </View>
-      </Modal>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      
+      {/* Floating circles for visual appeal */}
+      <View style={[styles.floatingCircle, styles.circle1]} />
+      <View style={[styles.floatingCircle, styles.circle2]} />
+      <View style={[styles.floatingCircle, styles.circle3]} />
+      
+      {isLoading && (
+        <Modal visible={isLoading} transparent>
+          <View style={styles.modal}>
+            <View style={styles.modalContent}>
+              <Progress.Bar width={width * 0.6} indeterminate={true} color="#667eea" />
+              <Text style={styles.loadingText}>Creating your account...</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
 
-      <AnimatedHeader
-        title="Create Account"
-        subtitle="Join WhisperLang today"
-        colors={['#11998e', '#38ef7d']}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <Image source={require('../../../assets/video-call-blue.png')} style={styles.headerImage} />
-      </AnimatedHeader>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Animated.View
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
+          {/* Logo Section */}
+          <Animated.View 
             style={[
-              styles.formContainer,
+              styles.logoSection,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: logoScale }]
+              }
+            ]}
+          >
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('../../../assets/video-call-blue.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.welcomeTitle}>Join WhisperLang</Text>
+            <Text style={styles.welcomeSubtitle}>Create your account to get started</Text>
+          </Animated.View>
+
+          {/* Register Form */}
+          <Animated.View 
+            style={[
+              styles.formSection,
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }]
               }
             ]}
           >
-            <GradientCard colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0.8)']} glassmorphism style={styles.registerCard}>
-              <Text style={styles.registerTitle}>Sign Up</Text>
-              <Text style={styles.registerSubtitle}>Create your account to get started</Text>
-
-              <GlassInput
-                placeholder="Full Name"
-                value={formData.name}
-                onChangeText={(text) => updateFormData('name', text)}
-                icon="person-outline"
-                containerStyle={styles.inputContainer}
-                error={errors.name}
-              />
-
-              <GlassInput
-                placeholder="Email Address"
-                value={formData.email}
-                onChangeText={(text) => updateFormData('email', text)}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                icon="mail-outline"
-                containerStyle={styles.inputContainer}
-                error={errors.email}
-              />
-
-              <GlassInput
-                placeholder="Phone Number"
-                value={formData.phone}
-                onChangeText={(text) => updateFormData('phone', text)}
-                keyboardType="phone-pad"
-                icon="call-outline"
-                containerStyle={styles.inputContainer}
-                error={errors.phone}
-              />
-
-              <GlassInput
-                placeholder="Password"
-                value={formData.password}
-                onChangeText={(text) => updateFormData('password', text)}
-                secureTextEntry
-                icon="lock-closed-outline"
-                containerStyle={styles.inputContainer}
-                error={errors.password}
-              />
-
-              <GlassInput
-                placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChangeText={(text) => updateFormData('confirmPassword', text)}
-                secureTextEntry
-                icon="lock-closed-outline"
-                containerStyle={styles.inputContainer}
-                error={errors.confirmPassword}
-                onSubmitEditing={handleRegister}
-              />
-
-              <GradientButton
-                title="Create Account"
+            <View style={styles.registerCard}>
+              <Text style={styles.registerTitle}>Create Account</Text>
+              
+              {renderInput("Full Name", "name", "person-outline")}
+              {renderInput("Email Address", "email", "mail-outline", false, "email-address")}
+              {renderInput("Phone Number", "phone", "call-outline", false, "phone-pad")}
+              {renderInput("Password", "password", "lock-closed-outline", true)}
+              {renderInput("Confirm Password", "confirmPassword", "lock-closed-outline", true)}
+              
+              <TouchableOpacity 
+                style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
                 onPress={handleRegister}
-                icon="person-add"
-                variant="secondary"
-                style={styles.registerButton}
                 disabled={isLoading}
-              />
-
-              <View style={styles.divider} />
-
-              <GradientButton
-                title="Back to Sign In"
-                onPress={() => navigation.navigate('LoginScreen')}
-                icon="log-in"
+              >
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  style={styles.registerGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="person-add-outline" size={20} color="#ffffff" style={styles.buttonIcon} />
+                  <Text style={styles.registerButtonText}>Create Account</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.divider} />
+              </View>
+              
+              <TouchableOpacity 
                 style={styles.loginButton}
-              />
-            </GradientCard>
+                onPress={() => navigation.navigate('LoginScreen')}
+              >
+                <Ionicons name="log-in-outline" size={20} color="#667eea" style={styles.buttonIcon} />
+                <Text style={styles.loginButtonText}>Back to Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
 
+          {/* Footer */}
+          <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
             <Text style={styles.footerText}>
-              By creating an account, you agree to our Terms of Service
+              By creating an account, you agree to our Terms of Service and Privacy Policy
             </Text>
           </Animated.View>
         </KeyboardAvoidingView>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#667eea',
   },
-  headerImage: {
-    width: 80,
-    height: 80,
-    marginTop: 10,
+  backgroundGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
-  content: {
+  floatingCircle: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 100,
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    top: -100,
+    right: -50,
+  },
+  circle2: {
+    width: 150,
+    height: 150,
+    bottom: 100,
+    left: -75,
+  },
+  circle3: {
+    width: 100,
+    height: 100,
+    top: 200,
+    left: 50,
+  },
+  scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   },
-  formContainer: {
-    paddingTop: 30,
-    paddingBottom: 40,
+  scrollContent: {
+    flexGrow: 1,
   },
-  registerCard: {
-    padding: 24,
-    marginBottom: 20,
+  keyboardView: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
   },
-  registerTitle: {
-    fontSize: 24,
+  logoSection: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 30,
+  },
+  logoContainer: {
+    width: 100,
+    height: 100,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+  },
+  welcomeTitle: {
+    fontSize: 32,
     fontWeight: '700',
-    color: '#1f2937',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 8,
   },
-  registerSubtitle: {
+  welcomeSubtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: 'rgba(255,255,255,0.8)',
     textAlign: 'center',
-    marginBottom: 24,
+    lineHeight: 22,
+  },
+  formSection: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  registerCard: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  registerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 32,
   },
   inputContainer: {
     marginBottom: 16,
   },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  inputWrapperFocused: {
+    borderColor: '#667eea',
+    backgroundColor: '#ffffff',
+    shadowColor: '#667eea',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  inputWrapperError: {
+    borderColor: '#ef4444',
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '500',
+  },
+  eyeIcon: {
+    padding: 4,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#ef4444',
+    marginTop: 4,
+    marginLeft: 8,
+  },
   registerButton: {
-    width: '100%',
-    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 8,
+    marginBottom: 24,
+    shadowColor: '#667eea',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  registerButtonDisabled: {
+    opacity: 0.6,
+  },
+  registerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  registerButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
   },
   divider: {
+    flex: 1,
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    marginVertical: 20,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
   },
   loginButton: {
-    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderWidth: 2,
+    borderColor: '#667eea',
+  },
+  loginButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#667eea',
+    letterSpacing: 0.5,
+  },
+  footer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
   },
   footerText: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: 'rgba(255,255,255,0.7)',
     textAlign: 'center',
-    fontStyle: 'italic',
+    lineHeight: 18,
   },
   modal: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '600',
+    marginTop: 16,
   },
 });
