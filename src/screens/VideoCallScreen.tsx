@@ -51,6 +51,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   useLayoutEffect(() => {
     if(!route.params.type) {
         alert("Your meeting ID is: " + route.params.id + "\nShare with only the people needed!");
+    } else if(route.params.type === 'join' && route.params.joinCode) {
+        alert("Joining call with code: " + route.params.joinCode + "\nConnecting to host...");
     }
   });
 

@@ -55,26 +55,22 @@ export default function CallsScreen({ navigation }: Props) {
 
   const meet = (): void => {
     if (id.trim()) {
-      const cleanCode = id.trim().toUpperCase();
+      const rawInput = id.trim();
+      const numericId = parseInt(rawInput);
       
-      console.log('Attempting to join with code:', cleanCode);
-      console.log('Active codes:', joinCodeService.getAllActiveCodes());
-      
-      if (joinCodeService.isValidCode(cleanCode)) {
-        const callData = joinCodeService.getCallData(cleanCode);
-        console.log('Found valid code, call data:', callData);
-        navigation.navigate('VideoCallScreen', {
-          id: Date.now(),
-          type: 'join',
-          joinCode: cleanCode
-        });
+      if (!isNaN(numericId)) {
+        navigation.navigate('VideoCallScreen', {id: numericId, type: 1});
       } else {
-        const numericId = parseInt(id);
-        if (!isNaN(numericId)) {
-          navigation.navigate('VideoCallScreen', {id: numericId, type: 1});
+        const cleanCode = rawInput.toUpperCase();
+        
+        if (/^[A-Z0-9]{4,8}$/.test(cleanCode)) {
+          navigation.navigate('VideoCallScreen', {
+            id: Date.now(),
+            type: 'join',
+            joinCode: cleanCode
+          });
         } else {
-          console.log('Code validation failed for:', cleanCode);
-          Alert.alert("Invalid Code", "Please enter a valid meeting ID or join code.");
+          Alert.alert("Invalid Code", "Join codes should be 4-8 characters using letters and numbers only.");
         }
       }
     } else {
@@ -248,7 +244,7 @@ export default function CallsScreen({ navigation }: Props) {
             <View style={[styles.inputWrapper, focusedField === 'meetingId' && styles.inputWrapperFocused]}>
               <TextInput
                 style={styles.textInput}
-                placeholder="Enter meeting ID or link"
+                placeholder="Enter meeting ID or join code (e.g. ABC123)"
                 placeholderTextColor="#9ca3af"
                 value={id}
                 onChangeText={setID}
@@ -256,6 +252,7 @@ export default function CallsScreen({ navigation }: Props) {
                 onFocus={() => setFocusedField('meetingId')}
                 onBlur={() => setFocusedField('')}
                 onSubmitEditing={meet}
+                autoCapitalize="characters"
               />
               {id.trim() && (
                 <TouchableOpacity onPress={() => setID('')}>
