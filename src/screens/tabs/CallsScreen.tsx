@@ -54,35 +54,65 @@ export default function CallsScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Quick Start Section */}
+        {/* Hero Section */}
         <Animated.View 
           style={[
-            styles.quickStartSection,
+            styles.heroSection,
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }]
             }
           ]}
         >
-          <View style={styles.quickStartCard}>
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              style={styles.startCallGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+          <View style={styles.heroContent}>
+            <View style={styles.heroIcon}>
+              <Ionicons name="videocam" size={28} color="#667eea" />
+            </View>
+            <Text style={styles.heroTitle}>Video Calling</Text>
+            <Text style={styles.heroSubtitle}>Connect with anyone, anywhere in the world with live translation</Text>
+          </View>
+        </Animated.View>
+
+        {/* Quick Actions */}
+        <Animated.View 
+          style={[
+            styles.actionsSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={createMeeting}
             >
-              <Ionicons name="videocam-outline" size={32} color="#ffffff" style={styles.startCallIcon} />
-              <Text style={styles.startCallTitle}>Start New Call</Text>
-              <Text style={styles.startCallSubtitle}>Begin a secure video call with anyone</Text>
-              
-              <TouchableOpacity 
-                style={styles.startCallButton}
-                onPress={createMeeting}
+              <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                style={styles.actionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
-                <Text style={styles.startCallButtonText}>Start WebRTC Video Call</Text>
-                <Ionicons name="arrow-forward" size={20} color="#667eea" />
-              </TouchableOpacity>
-            </LinearGradient>
+                <Ionicons name="add-outline" size={24} color="#ffffff" />
+                <Text style={styles.actionTitle}>New Meeting</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.actionCard}
+              onPress={() => {/* Schedule meeting */}}
+            >
+              <LinearGradient
+                colors={['#10b981', '#059669']}
+                style={styles.actionGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="calendar-outline" size={24} color="#ffffff" />
+                <Text style={styles.actionTitle}>Schedule</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
@@ -97,22 +127,28 @@ export default function CallsScreen({ navigation }: Props) {
           ]}
         >
           <View style={styles.joinCard}>
-            <Text style={styles.sectionTitle}>Join Meeting</Text>
-            <Text style={styles.sectionSubtitle}>Enter a meeting ID to join an existing call</Text>
+            <View style={styles.joinHeader}>
+              <Ionicons name="enter-outline" size={20} color="#667eea" />
+              <Text style={styles.sectionTitle}>Join a Meeting</Text>
+            </View>
             
             <View style={[styles.inputWrapper, focusedField === 'meetingId' && styles.inputWrapperFocused]}>
-              <Ionicons name="enter-outline" size={20} color={focusedField === 'meetingId' ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
-                placeholder="Enter meeting ID"
+                placeholder="Enter meeting ID or link"
                 placeholderTextColor="#9ca3af"
                 value={id}
                 onChangeText={setID}
-                keyboardType="decimal-pad"
+                keyboardType="default"
                 onFocus={() => setFocusedField('meetingId')}
                 onBlur={() => setFocusedField('')}
                 onSubmitEditing={meet}
               />
+              {id.trim() && (
+                <TouchableOpacity onPress={() => setID('')}>
+                  <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                </TouchableOpacity>
+              )}
             </View>
             
             <TouchableOpacity 
@@ -120,16 +156,56 @@ export default function CallsScreen({ navigation }: Props) {
               onPress={meet}
               disabled={!id.trim()}
             >
-              <LinearGradient
-                colors={id.trim() ? ['#667eea', '#764ba2'] : ['#9ca3af', '#6b7280']}
-                style={styles.joinGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="log-in-outline" size={20} color="#ffffff" style={styles.buttonIcon} />
-                <Text style={styles.joinButtonText}>Join Meeting</Text>
-              </LinearGradient>
+              <Text style={[styles.joinButtonText, !id.trim() && styles.joinButtonTextDisabled]}>
+                Join Meeting
+              </Text>
+              <Ionicons 
+                name="arrow-forward" 
+                size={16} 
+                color={id.trim() ? '#667eea' : '#9ca3af'} 
+                style={styles.joinButtonIcon}
+              />
             </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Recent Activity */}
+        <Animated.View 
+          style={[
+            styles.recentSection,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <View style={styles.recentCard}>
+            <View style={styles.recentItem}>
+              <View style={styles.recentIcon}>
+                <Ionicons name="videocam-outline" size={16} color="#667eea" />
+              </View>
+              <View style={styles.recentContent}>
+                <Text style={styles.recentTitle}>Meeting with John Doe</Text>
+                <Text style={styles.recentTime}>2 hours ago • 15 minutes</Text>
+              </View>
+              <TouchableOpacity style={styles.recentAction}>
+                <Ionicons name="refresh-outline" size={16} color="#667eea" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.recentItem}>
+              <View style={styles.recentIcon}>
+                <Ionicons name="people-outline" size={16} color="#10b981" />
+              </View>
+              <View style={styles.recentContent}>
+                <Text style={styles.recentTitle}>Team Standup</Text>
+                <Text style={styles.recentTime}>Yesterday • 30 minutes</Text>
+              </View>
+              <TouchableOpacity style={styles.recentAction}>
+                <Ionicons name="refresh-outline" size={16} color="#667eea" />
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
       </ScrollView>
@@ -147,99 +223,112 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: 20,
   },
-  quickStartSection: {
-    marginBottom: 32,
+  // Hero Section
+  heroSection: {
+    marginBottom: 24,
   },
-  quickStartCard: {
+  heroContent: {
+    backgroundColor: '#ffffff',
     borderRadius: 20,
-    overflow: 'hidden',
+    padding: 32,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: 2,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 16,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  startCallGradient: {
+  heroIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#f0f4ff',
     alignItems: 'center',
-    padding: 32,
-  },
-  startCallIcon: {
+    justifyContent: 'center',
     marginBottom: 16,
   },
-  startCallTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  startCallSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  startCallButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    width: '100%',
-    justifyContent: 'center',
-  },
-  startCallButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#667eea',
-    marginRight: 8,
-    letterSpacing: 0.5,
-  },
-  joinSection: {
-    marginBottom: 32,
-  },
-  joinCard: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
+  heroTitle: {
+    fontSize: 28,
     fontWeight: '700',
     color: '#1f2937',
     marginBottom: 8,
+    textAlign: 'center',
   },
-  sectionSubtitle: {
-    fontSize: 14,
+  heroSubtitle: {
+    fontSize: 16,
     color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  // Actions Section
+  actionsSection: {
+    marginBottom: 24,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  actionGradient: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  // Join Section
+  joinSection: {
+    marginBottom: 24,
+  },
+  joinCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  joinHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
-    lineHeight: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginLeft: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    paddingVertical: 4,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   inputWrapperFocused: {
     borderColor: '#667eea',
@@ -249,48 +338,89 @@ const styles = StyleSheet.create({
       width: 0,
       height: 0,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  inputIcon: {
-    marginRight: 12,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
     color: '#1f2937',
-    fontWeight: '500',
+    paddingVertical: 12,
   },
   joinButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#667eea',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  joinButtonDisabled: {
-    opacity: 0.6,
-  },
-  joinGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingVertical: 16,
     paddingHorizontal: 24,
+    borderWidth: 1,
+    borderColor: '#667eea',
   },
-  buttonIcon: {
-    marginRight: 8,
+  joinButtonDisabled: {
+    backgroundColor: '#f3f4f6',
+    borderColor: '#d1d5db',
   },
   joinButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  joinButtonTextDisabled: {
+    color: '#9ca3af',
+  },
+  joinButtonIcon: {
+    marginLeft: 8,
+  },
+  // Recent Section
+  recentSection: {
+    marginBottom: 24,
+  },
+  recentCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  recentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  recentIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  recentContent: {
+    flex: 1,
+  },
+  recentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  recentTime: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  recentAction: {
+    padding: 8,
   },
 });

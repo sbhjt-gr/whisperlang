@@ -209,14 +209,6 @@ const styles = StyleSheet.create({
   profileCard: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 16,
   },
   profileGradient: {
     alignItems: 'center',
@@ -259,14 +251,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   settingItem: {
     flexDirection: 'row',
@@ -306,14 +290,6 @@ const styles = StyleSheet.create({
   logoutCard: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
   },
   logoutGradient: {
     flexDirection: 'row',
