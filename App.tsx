@@ -13,6 +13,7 @@ import RegPassword from './src/screens/auth/RegPassword';
 import { auth } from "./src/config/firebase"
 import VideoCallScreen from './src/screens/VideoCallScreen';
 import { RootStackParamList } from './src/types/navigation';
+import WebRTCProvider from './src/store/WebRTCProvider';
 
 const screenHeight = Dimensions.get('window').height;
 const screenWidth = Dimensions.get('window').width;
@@ -20,41 +21,43 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
-    <NavigationContainer theme={{...DefaultTheme, colors: {...DefaultTheme.colors, background: 'rgba(64,171,250, 0.15'}}}>
-      <StatusBar backgroundColor='#4875FF' style='light' />
-        <SafeAreaProvider>
-                      <ImageBackground style={{height: screenHeight, width: screenWidth}} source={require('./assets/background.jpg')} resizeMode="cover">
-            <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#4875FF'}, headerTintColor: '#fff'}} initialRouteName="LoginScreen">
-              <Stack.Screen name = "LoginScreen" component = {LoginScreen} options = {{title: 'Log into your account!'}} 
-              /><Stack.Screen
-                name = "HomeScreen"
-                component = {HomeScreen}
-                options = {{title: 'Welcome, ' + auth?.currentUser?.displayName + '!'}} />
-                <Stack.Screen
-                name = "RegName"
-                component = {RegName}
-                options = {{title: 'Enter your name'}}
+    <WebRTCProvider>
+      <NavigationContainer theme={{...DefaultTheme, colors: {...DefaultTheme.colors, background: 'rgba(64,171,250, 0.15'}}}>
+        <StatusBar backgroundColor='#4875FF' style='light' />
+          <SafeAreaProvider>
+                        <ImageBackground style={{height: screenHeight, width: screenWidth}} source={require('./assets/background.jpg')} resizeMode="cover">
+              <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#4875FF'}, headerTintColor: '#fff'}} initialRouteName="LoginScreen">
+                <Stack.Screen name = "LoginScreen" component = {LoginScreen} options = {{title: 'Log into your account!'}} 
                 /><Stack.Screen
-                name = "RegNumber"
-                component = {RegNumber}
-                options = {{title: 'Enter your phone number'}}
-                /><Stack.Screen
-                name = "RegEmailID"
-                component = {RegEmailID}
-                options = {{title: 'Enter e-mail ID'}}
-                /><Stack.Screen
-                name = "RegPassword"
-                component = {RegPassword}
-                options = {{title: 'Create a Password'}}
-                /><Stack.Screen
-                name = "VideoCallScreen" 
-                component = {VideoCallScreen}
-                options={{ headerShown: false }}
-              />
-          </Stack.Navigator>
-        </ImageBackground>
-      </SafeAreaProvider>
-    </NavigationContainer>
+                  name = "HomeScreen"
+                  component = {HomeScreen}
+                  options = {{title: 'Welcome, ' + auth?.currentUser?.displayName + '!'}} />
+                  <Stack.Screen
+                  name = "RegName"
+                  component = {RegName}
+                  options = {{title: 'Enter your name'}}
+                  /><Stack.Screen
+                  name = "RegNumber"
+                  component = {RegNumber}
+                  options = {{title: 'Enter your phone number'}}
+                  /><Stack.Screen
+                  name = "RegEmailID"
+                  component = {RegEmailID}
+                  options = {{title: 'Enter e-mail ID'}}
+                  /><Stack.Screen
+                  name = "RegPassword"
+                  component = {RegPassword}
+                  options = {{title: 'Create a Password'}}
+                  /><Stack.Screen
+                  name = "VideoCallScreen" 
+                  component = {VideoCallScreen}
+                  options={{ headerShown: false }}
+                />
+            </Stack.Navigator>
+          </ImageBackground>
+        </SafeAreaProvider>
+      </NavigationContainer>
+    </WebRTCProvider>
     );
 }
 
