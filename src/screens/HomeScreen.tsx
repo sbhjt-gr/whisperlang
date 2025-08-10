@@ -3,7 +3,6 @@ import { View, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } fr
 import { Button, Input, Text, Image } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { auth } from "../config/firebase";
 import { RootStackParamList } from '../types/navigation';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'HomeScreen'>;
@@ -17,17 +16,7 @@ interface Props {
 export default function HomeScreen({ navigation, route }: Props) {
   const [id, setID] = useState<string>('');
   
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: 'Welcome, ' + auth?.currentUser?.displayName + '!',
-      headerRight: () => (
-        <TouchableOpacity onPress={LogOut}>
-          <Text style={{color: '#fff', fontWeight: 'bold'}}>Log Out</Text>
-        </TouchableOpacity>
-      ),
-      headerLeft: () => <></>
-    });
-  }, []);
+
   
   const meet = (): void => {
     if (id) {

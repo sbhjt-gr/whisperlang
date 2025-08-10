@@ -48,9 +48,9 @@ ios/build/
 *.aab
 *.ipa
 
-# Firebase
-GoogleService-Info.plist
-google-services.json
+# Firebase config files (not used - we use .env variables only)
+# GoogleService-Info.plist
+# google-services.json
 
 # Logs
 logs

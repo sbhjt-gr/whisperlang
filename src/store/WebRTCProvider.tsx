@@ -7,7 +7,6 @@ import {
 } from 'react-native-webrtc';
 import socketio from 'socket.io-client';
 import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
-// @ts-ignore
 import Peer from 'react-native-peerjs';
 
 const SERVER_URL = 'https://whisperlang-render.onrender.com';
