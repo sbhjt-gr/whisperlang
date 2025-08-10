@@ -450,12 +450,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#e5e7eb',
   },
   inputWrapperFocused: {
     borderColor: '#667eea',
