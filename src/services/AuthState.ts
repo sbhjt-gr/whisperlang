@@ -3,6 +3,7 @@ import {
   onAuthStateChanged, 
   FirebaseAuthTypes 
 } from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuthInstance } from './FirebaseInstances';
 import { 
@@ -15,6 +16,14 @@ import { isFirebaseReady } from './FirebaseConfig';
 export const logoutUser = async (): Promise<{ success: boolean; error?: string }> => {
   try {
     await signOut(getAuthInstance());
+    
+    try {
+      await GoogleSignin.revokeAccess();
+      await GoogleSignin.signOut();
+    } catch {
+      
+    }
+    
     await storeAuthState(null);
     
     return { success: true };

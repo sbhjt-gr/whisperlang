@@ -2359,6 +2359,11 @@
   resolved "https://registry.yarnpkg.com/@react-native-firebase/firestore/-/firestore-20.5.0.tgz#f3bf30300dd3ff2ee19c0e82a90eb1c61bf43f31"
   integrity sha512-DsjMLHlVcj6If02kfQKpPDQ1S29mL8lAusQ8wRJ8oltQd64HBsANcjDXpWak6v7ohY6TmGvuHjBfNF73M+7LXA==
 
+"@react-native-google-signin/google-signin@^14.0.1":
+  version "14.0.2"
+  resolved "https://registry.yarnpkg.com/@react-native-google-signin/google-signin/-/google-signin-14.0.2.tgz#752efa782bf0559727c281bee3a41409f711b24d"
+  integrity sha512-L23SBl30VGVjxdX3jb9PZJHuuitsSU/aMGWCNQqSx69PrUqGcP2gkcUeOsK6VPFadPbjh+4ml+0UoAEzZGA3dQ==
+
 "@react-native/assets-registry@0.79.5":
   version "0.79.5"
   resolved "https://registry.yarnpkg.com/@react-native/assets-registry/-/assets-registry-0.79.5.tgz#90a178ec6646a22eb4218285cc2df7fd82603e34"
@@ -5210,6 +5215,11 @@ expect@^29.7.0:
     jest-matcher-utils "^29.7.0"
     jest-message-util "^29.7.0"
     jest-util "^29.7.0"
+
+expo-application@^6.1.5:
+  version "6.1.5"
+  resolved "https://registry.yarnpkg.com/expo-application/-/expo-application-6.1.5.tgz#78e569ed8ab237c9bae67d693fec629dd447e53d"
+  integrity sha512-ToImFmzw8luY043pWFJhh2ZMm4IwxXoHXxNoGdlhD4Ym6+CCmkAvCglg0FK8dMLzAb+/XabmOE7Rbm8KZb6NZg==
 
 expo-asset@~11.1.7:
   version "11.1.7"

@@ -19,11 +19,21 @@ export {
 } from './EmailAuth';
 
 export { 
+  signInWithGoogle,
+  signInWithGoogleLogin,
+  debugGoogleOAuthConfig
+} from './GoogleAuth';
+
+export { 
   logoutUser,
   getCurrentUser,
   isAuthenticated,
   initAuthState,
   getCompleteUserData
 } from './AuthState';
+
+export {
+  isEmailFromTrustedProvider
+} from './SecurityUtils';
 
 export type { UserData } from './AuthStorage';

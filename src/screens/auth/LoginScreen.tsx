@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, TouchableOpacity, StatusBar, TextInput } from 'react-native';
 import { Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { loginWithEmail, initializeFirebase } from '../../services/FirebaseService';
+import { loginWithEmail, initializeFirebase, signInWithGoogleLogin } from '../../services/FirebaseService';
 import { getAuthInstance } from '../../services/FirebaseInstances';
 import * as Progress from 'react-native-progress';
 import { RootStackParamList } from '../../types/navigation';
@@ -65,6 +65,20 @@ export default function LoginScreen({ navigation }: Props) {
       }
     } else {
       alert("Enter all your details first!");
+    }
+  };
+
+  const handleGoogleSignIn = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const result = await signInWithGoogleLogin();
+      if (!result.success) {
+        alert(result.error || 'Google sign-in failed');
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      alert('Google sign-in failed. Please try again.');
+      setIsLoading(false);
     }
   };
   
@@ -253,6 +267,15 @@ export default function LoginScreen({ navigation }: Props) {
                 <Text style={styles.dividerText}>or</Text>
                 <View style={styles.divider} />
               </View>
+              
+              <TouchableOpacity 
+                style={[styles.googleButton, isLoading && styles.signInButtonDisabled]}
+                onPress={handleGoogleSignIn}
+                disabled={isLoading}
+              >
+                <Ionicons name="logo-google" size={20} color="#ffffff" style={styles.buttonIcon} />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.createAccountButton}
@@ -494,6 +517,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#667eea',
+    letterSpacing: 0.5,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#db4437',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 16,
+    shadowColor: '#db4437',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
     letterSpacing: 0.5,
   },
   footer: {

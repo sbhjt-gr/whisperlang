@@ -7,6 +7,7 @@ import { RootStackParamList } from '../../types/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { registerWithEmail, signInWithGoogle } from '../../services/FirebaseService';
 
 type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RegisterScreen'>;
 
@@ -112,12 +113,34 @@ export default function RegisterScreen({ navigation }: Props) {
 
     try {
       setIsLoading(true);
-      // Registration logic would go here
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => navigation.navigate('LoginScreen') }
-      ]);
+      const result = await registerWithEmail(formData.name, formData.email, formData.password);
+      
+      if (result.success) {
+        Alert.alert('Success', 'Account created successfully! Please check your email for verification.', [
+          { text: 'OK', onPress: () => navigation.replace('HomeScreen', {signedUp: 1}) }
+        ]);
+      } else {
+        Alert.alert('Registration Failed', result.error || 'Registration failed. Please try again.');
+      }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Registration failed. Please try again.');
+      Alert.alert('Error', 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const result = await signInWithGoogle();
+      
+      if (result.success) {
+        navigation.replace('HomeScreen', {signedUp: 1});
+      } else {
+        Alert.alert('Google Sign-Up Failed', result.error || 'Google sign-up failed. Please try again.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Google sign-up failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -275,6 +298,15 @@ export default function RegisterScreen({ navigation }: Props) {
                 <Text style={styles.dividerText}>or</Text>
                 <View style={styles.divider} />
               </View>
+              
+              <TouchableOpacity 
+                style={[styles.googleButton, isLoading && styles.registerButtonDisabled]}
+                onPress={handleGoogleSignUp}
+                disabled={isLoading}
+              >
+                <Ionicons name="logo-google" size={20} color="#ffffff" style={styles.buttonIcon} />
+                <Text style={styles.googleButtonText}>Sign up with Google</Text>
+              </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.loginButton}
@@ -517,6 +549,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#667eea',
+    letterSpacing: 0.5,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#db4437',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 16,
+    shadowColor: '#db4437',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
     letterSpacing: 0.5,
   },
   footer: {

@@ -8,8 +8,11 @@ import { getAuthInstance } from './FirebaseInstances';
 import { 
   validateEmail, 
   validatePassword, 
-  validateName
-} from './ValidationUtils';
+  validateName,
+  checkRateLimiting,
+  incrementAuthAttempts,
+  resetAuthAttempts
+} from './SecurityUtils';
 import { storeAuthState } from './AuthStorage';
 
 export const registerWithEmail = async (
@@ -31,10 +34,19 @@ export const registerWithEmail = async (
       return { success: false, error: passwordValidation.message };
     }
     
+    const notRateLimited = await checkRateLimiting();
+    if (!notRateLimited) {
+      return { 
+        success: false, 
+        error: 'Too many attempts. Please try again later.' 
+      };
+    }
+    
     const userCredential = await createUserWithEmailAndPassword(getAuthInstance(), email, password);
     const user = userCredential.user;
     
     await updateProfile(user, { displayName: name });
+    await resetAuthAttempts();
     
     try {
       await sendEmailVerification(user);
@@ -53,6 +65,8 @@ export const registerWithEmail = async (
     if (__DEV__) {
       console.error('Registration error:', error);
     }
+    
+    await incrementAuthAttempts();
     
     if (error.code === 'auth/email-already-in-use') {
       return { success: false, error: 'Email address is already in use' };
@@ -86,13 +100,24 @@ export const loginWithEmail = async (
       return { success: false, error: 'Password is required' };
     }
     
+    const notRateLimited = await checkRateLimiting();
+    if (!notRateLimited) {
+      return { 
+        success: false, 
+        error: 'Too many attempts. Please try again later.' 
+      };
+    }
+    
     const userCredential = await signInWithEmailAndPassword(getAuthInstance(), email, password);
     const user = userCredential.user;
     
+    await resetAuthAttempts();
     await storeAuthState(user);
     
     return { success: true };
   } catch (error: any) {
+    await incrementAuthAttempts();
+    
     if (error.code === 'auth/invalid-email') {
       return { success: false, error: 'Invalid email format' };
     } else if (error.code === 'auth/user-disabled') {
