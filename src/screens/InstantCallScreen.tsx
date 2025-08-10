@@ -49,9 +49,14 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   }, []);
 
   const initializeCall = async () => {
+    console.log('=== INSTANT CALL SCREEN INIT ===');
+    console.log('Permission status:', permission?.granted);
+    
     if (!permission?.granted) {
+      console.log('Requesting camera permission...');
       const response = await requestPermission();
       if (!response.granted) {
+        console.log('Camera permission denied');
         Alert.alert(
           'Camera Permission Required',
           'Please enable camera permission to start a video call.',
@@ -62,15 +67,28 @@ export default function InstantCallScreen({ navigation, route }: Props) {
         );
         return;
       }
+      console.log('Camera permission granted');
     }
 
     const code = generateJoinCode();
     setJoinCode(code);
+    console.log('Generated join code:', code);
     
     const currentUser = auth.currentUser;
+    console.log('Current user:', currentUser?.displayName || currentUser?.email);
+    
     if (currentUser?.displayName) {
+      console.log('Setting username and initializing WebRTC...');
       setUsername(currentUser.displayName);
-      await initialize();
+      
+      try {
+        await initialize(currentUser.displayName);
+        console.log('WebRTC initialization completed for instant call');
+      } catch (error) {
+        console.error('Failed to initialize WebRTC in instant call:', error);
+      }
+    } else {
+      console.warn('No user display name found, cannot initialize WebRTC');
     }
   };
 

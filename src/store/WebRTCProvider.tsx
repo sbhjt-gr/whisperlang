@@ -55,16 +55,26 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const [activeCall, setActiveCall] = useState<any>(null);
 
   const initialize = async (currentUsername?: string) => {
+    console.log('=== WEBRTC INITIALIZE START ===');
+    console.log('Current username param:', currentUsername);
+    console.log('Existing username state:', username);
+    
     if (currentUsername) {
       setUsername(currentUsername);
+      console.log('Set username to:', currentUsername);
     }
+    
+    console.log('Starting media device enumeration...');
     const isFrontCamera = true;
     const devices = await mediaDevices.enumerateDevices();
+    console.log('Found devices:', devices.length);
 
     const facing = isFrontCamera ? 'front' : 'environment';
     const videoSourceId = devices.find(
       (device: any) => device.kind === 'videoinput' && device.facing === facing,
     );
+    console.log('Video source ID:', videoSourceId?.deviceId || 'Not found');
+    
     const facingMode = isFrontCamera ? 'user' : 'environment';
     const constraints: MediaStreamConstraints = {
       audio: true,
@@ -78,22 +88,44 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         optional: videoSourceId ? [{sourceId: videoSourceId}] : [],
       },
     };
+    console.log('Media constraints:', constraints);
 
-    const newStream = await mediaDevices.getUserMedia(constraints);
-    setLocalStream(newStream as MediaStream);
+    try {
+      console.log('Requesting user media...');
+      const newStream = await mediaDevices.getUserMedia(constraints);
+      console.log('Got local stream:', newStream.id);
+      console.log('Audio tracks:', newStream.getAudioTracks().length);
+      console.log('Video tracks:', newStream.getVideoTracks().length);
+      setLocalStream(newStream as MediaStream);
+    } catch (error) {
+      console.error('Failed to get user media:', error);
+      throw error;
+    }
 
+    console.log('Connecting to socket server:', SERVER_URL);
     const io = socketio.connect(SERVER_URL, {
       reconnection: true,
       autoConnect: true,
     });
 
     io.on('connect', () => {
+      console.log('Socket connected successfully');
       setSocket(io);
       const finalUsername = currentUsername || username;
+      console.log('Registering user:', finalUsername);
       io.emit('register', finalUsername);
     });
 
+    io.on('disconnect', () => {
+      console.log('Socket disconnected');
+    });
+
+    io.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
     io.on('users-change', (users: User[]) => {
+      console.log('Users changed, new list:', users);
       setUsers(users);
     });
 
@@ -113,6 +145,14 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       Alert.alert(username + ' is not available right now');
     });
 
+    console.log('Creating peer server connection...');
+    console.log('Peer config:', {
+      host: PEER_SERVER_HOST,
+      path: PEER_SERVER_PATH,
+      secure: true,
+      port: PEER_SERVER_PORT,
+    });
+
     const peerServer = new Peer(undefined, {
       host: PEER_SERVER_HOST,
       path: PEER_SERVER_PATH,
@@ -130,14 +170,24 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       },
     });
 
-    peerServer.on('error', (err: Error) =>
-      console.log('Peer server error', err),
-    );
+    peerServer.on('error', (err: Error) => {
+      console.error('Peer server error:', err);
+    });
 
     peerServer.on('open', (peerId: string) => {
+      console.log('Peer server opened with ID:', peerId);
       setPeerServer(peerServer);
       setPeerId(peerId);
+      console.log('Emitting set-peer-id to socket...');
       io.emit('set-peer-id', peerId);
+    });
+
+    peerServer.on('disconnected', () => {
+      console.log('Peer server disconnected');
+    });
+
+    peerServer.on('close', () => {
+      console.log('Peer server connection closed');
     });
 
     io.on('call', (user: User) => {

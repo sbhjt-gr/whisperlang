@@ -7,6 +7,7 @@ import {
   View,
   Animated,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {RTCView} from 'react-native-webrtc';
@@ -33,6 +34,12 @@ interface Props {
 }
 
 export default function VideoCallScreen({ navigation, route }: Props) {
+  console.log('=== VIDEO CALL SCREEN INIT ===');
+  console.log('Route params:', route.params);
+  console.log('Call ID:', route.params?.id);
+  console.log('Call type:', route.params?.type);
+  console.log('Join code:', route.params?.joinCode);
+
   const {
     localStream,
     remoteStream,
@@ -42,21 +49,35 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     closeCall,
     toggleMute,
     switchCamera,
+    initialize,
   } = useContext(WebRTCContext);
+
+  console.log('=== WEBRTC CONTEXT STATE ===');
+  console.log('Local stream:', localStream ? 'Available' : 'None');
+  console.log('Remote stream:', remoteStream ? 'Available' : 'None');
+  console.log('Active call:', activeCall);
+  console.log('Remote user:', remoteUser);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const controlsAnim = useRef(new Animated.Value(1)).current;
   const [controlsVisible, setControlsVisible] = React.useState(true);
 
   useLayoutEffect(() => {
+    console.log('=== VIDEO CALL SCREEN LAYOUT EFFECT ===');
     if(!route.params.type) {
+        console.log('No type - showing meeting ID alert');
         alert("Your meeting ID is: " + route.params.id + "\nShare with only the people needed!");
     } else if(route.params.type === 'join' && route.params.joinCode) {
+        console.log('Join type detected - showing join code alert');
         alert("Joining call with code: " + route.params.joinCode + "\nConnecting to host...");
+    } else {
+        console.log('Other type detected:', route.params.type);
     }
   });
 
   useEffect(() => {
+    console.log('=== VIDEO CALL SCREEN MAIN EFFECT ===');
+    
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,
@@ -69,6 +90,44 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    console.log('=== WEBRTC INITIALIZATION EFFECT ===');
+    
+    const initializeForJoinCode = async () => {
+      if (route.params.type === 'join' && route.params.joinCode) {
+        console.log('Join code detected, initializing WebRTC...');
+        const currentUser = auth.currentUser;
+        const username = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Anonymous';
+        console.log('Using username:', username);
+        
+        try {
+          console.log('Starting WebRTC initialization...');
+          await initialize(username);
+          console.log('WebRTC initialization completed');
+        } catch (error) {
+          console.error('Failed to initialize WebRTC:', error);
+          Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
+        }
+      } else if (!route.params.type) {
+        console.log('No type specified, this is likely a host creating a new meeting');
+        const currentUser = auth.currentUser;
+        const username = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Host';
+        console.log('Using host username:', username);
+        
+        try {
+          console.log('Starting WebRTC initialization for host...');
+          await initialize(username);
+          console.log('Host WebRTC initialization completed');
+        } catch (error) {
+          console.error('Failed to initialize WebRTC for host:', error);
+          Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
+        }
+      }
+    };
+
+    initializeForJoinCode();
+  }, [route.params]);
 
   const showControls = () => {
     setControlsVisible(true);
