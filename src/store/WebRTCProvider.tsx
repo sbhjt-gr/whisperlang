@@ -10,10 +10,10 @@ import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
 // @ts-ignore
 import Peer from 'react-native-peerjs';
 
-const SERVER_URL = 'https://your-socket-server.com';
-const PEER_SERVER_HOST = 'your-peer-server.com';
+const SERVER_URL = 'https://your-app-name.onrender.com';
+const PEER_SERVER_HOST = 'your-app-name.onrender.com';
 const PEER_SERVER_PORT = 443;
-const PEER_SERVER_PATH = '/';
+const PEER_SERVER_PATH = '/peerjs';
 
 const initialValues: WebRTCContextType = {
   username: '',
