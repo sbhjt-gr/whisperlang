@@ -10,8 +10,8 @@ import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
 // @ts-ignore
 import Peer from 'react-native-peerjs';
 
-const SERVER_URL = 'https://your-app-name.onrender.com';
-const PEER_SERVER_HOST = 'your-app-name.onrender.com';
+const SERVER_URL = 'https://whisperlang-render.onrender.com';
+const PEER_SERVER_HOST = 'whisperlang-render.onrender.com';
 const PEER_SERVER_PORT = 443;
 const PEER_SERVER_PATH = '/peerjs';
 

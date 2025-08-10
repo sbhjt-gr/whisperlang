@@ -6,4 +6,5 @@ export type RootStackParamList = {
   RegEmailID: { name: string; number?: string };
   RegPassword: { email: string; name: string };
   VideoCallScreen: { id: number; type?: number };
+  UsersScreen: undefined;
 }; 

@@ -38,7 +38,7 @@ export default function HomeScreen({ navigation, route }: Props) {
   };
   
   const createMeeting = (): void => {
-    navigation.navigate('VideoCallScreen', { id: (Math.floor(Math.random() * 1000000) + 1)});
+    navigation.navigate('UsersScreen');
   };
   
   const LogOut = async (): Promise<void> => {
@@ -53,7 +53,7 @@ export default function HomeScreen({ navigation, route }: Props) {
         <Image source={require('../../assets/video-call-blue.png')} style={{ width: 160, height: 160, marginBottom: 20, marginTop: 10 }} />
         <Text h3 style={{ color: '#696969', marginBottom: 12 }}>All your meetings!</Text>
         <Button
-          title="Create a new meeting"
+          title="Start WebRTC Video Call"
           size="lg"
           titleStyle={{ fontWeight: '700' }}
           buttonStyle={{

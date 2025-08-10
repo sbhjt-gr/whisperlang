@@ -2,8 +2,8 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform} from 'react-native';
 import { Button, Input, Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { auth } from "../../config/firebase";
-import { signInWithEmailAndPassword, User } from 'firebase/auth';
+import { loginWithEmail, initializeFirebase, onAuthStateChanged } from '../../services/FirebaseService';
+import { getAuthInstance } from '../../services/FirebaseInstances';
 import * as Progress from 'react-native-progress';
 import { RootStackParamList } from '../../types/navigation';
 
@@ -23,9 +23,13 @@ export default function LoginScreen({ navigation }: Props) {
     if (email && password) {
       try {
         setIsLoading(true);
-        await signInWithEmailAndPassword(auth, email, password);
+        const result = await loginWithEmail(email, password);
+        if (!result.success) {
+          alert(result.error || 'Login failed');
+          setIsLoading(false);
+        }
       } catch (err: any) {
-        alert(err);
+        alert('Login failed. Please try again.');
         setIsLoading(false);
       }
     } else {
@@ -40,16 +44,29 @@ export default function LoginScreen({ navigation }: Props) {
   }, []);
   
   useEffect(() => {
-    setIsLoading(true);
-         const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
-         if(authUser) {
-             navigation.replace('HomeScreen', {signedUp: 0});
-         } else {
-           setIsLoading(false);
-         }
-     });
-    return unsubscribe;
-    }, []);
+    const initAuth = async () => {
+      try {
+        setIsLoading(true);
+        await initializeFirebase();
+        
+        import('@react-native-firebase/auth').then(({ default: auth }) => {
+          const unsubscribe = auth().onAuthStateChanged((authUser: any) => {
+            if (authUser) {
+              navigation.replace('HomeScreen', {signedUp: 0});
+            } else {
+              setIsLoading(false);
+            }
+          });
+          return unsubscribe;
+        });
+      } catch (error) {
+        setIsLoading(false);
+        console.error('Firebase initialization failed:', error);
+      }
+    };
+    
+    initAuth();
+  }, []);
     
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

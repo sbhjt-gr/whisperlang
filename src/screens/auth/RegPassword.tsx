@@ -3,8 +3,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensio
 import { Button, Input, Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
-import { auth } from "../../config/firebase";
-import { createUserWithEmailAndPassword, updateProfile, User } from 'firebase/auth';
+import { registerWithEmail } from '../../services/FirebaseService';
 import * as Progress from 'react-native-progress';
 import { RootStackParamList } from '../../types/navigation';
 
@@ -25,12 +24,16 @@ export default function RegPassword({ navigation, route }: Props) {
     if(password) {
       try {
         setIsLoading(true);
-        const { user } = await createUserWithEmailAndPassword(auth, route.params.email, password);
-        await updateProfile(user, {
-          displayName: route.params.name,
-        });
+        const result = await registerWithEmail(route.params.name, route.params.email, password);
+        if (!result.success) {
+          alert(result.error || 'Registration failed');
+          setIsLoading(false);
+        }
+        if (result.passwordWarning) {
+          alert(result.passwordWarning);
+        }
       } catch (error: any) {
-        alert(error.message);
+        alert('Registration failed. Please try again.');
         setIsLoading(false);
       }
     } else {
@@ -39,13 +42,15 @@ export default function RegPassword({ navigation, route }: Props) {
   };
   
   useEffect(() => {
-         const unsubscribe = auth.onAuthStateChanged((authUser: User | null) => {
-         if(authUser) {
-             navigation.replace('HomeScreen', {signedUp: 1});
-         }
-     });
-    return unsubscribe;
-    }, []);
+    import('@react-native-firebase/auth').then(({ default: auth }) => {
+      const unsubscribe = auth().onAuthStateChanged((authUser: any) => {
+        if (authUser) {
+          navigation.replace('HomeScreen', {signedUp: 1});
+        }
+      });
+      return unsubscribe;
+    });
+  }, []);
     
   return (
     <KeyboardAvoidingView behavior='padding'>

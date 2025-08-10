@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ImageBackground, StyleSheet, Dimensions  } from 'react-native';
@@ -10,7 +10,8 @@ import RegName from './src/screens/auth/RegName';
 import RegNumber from './src/screens/auth/RegNumber';
 import RegEmailID from './src/screens/auth/RegEmailID';
 import RegPassword from './src/screens/auth/RegPassword';
-import { auth } from "./src/config/firebase"
+import UsersScreen from './src/screens/UsersScreen';
+import { initializeFirebase } from './src/services/FirebaseService';
 import VideoCallScreen from './src/screens/VideoCallScreen';
 import { RootStackParamList } from './src/types/navigation';
 import WebRTCProvider from './src/store/WebRTCProvider';
@@ -20,6 +21,19 @@ const screenWidth = Dimensions.get('window').width;
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        await initializeFirebase();
+        console.log('Firebase initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize Firebase:', error);
+      }
+    };
+    
+    initApp();
+  }, []);
+
   return (
     <WebRTCProvider>
       <NavigationContainer theme={{...DefaultTheme, colors: {...DefaultTheme.colors, background: 'rgba(64,171,250, 0.15'}}}>
@@ -31,7 +45,7 @@ export default function App() {
                 /><Stack.Screen
                   name = "HomeScreen"
                   component = {HomeScreen}
-                  options = {{title: 'Welcome, ' + auth?.currentUser?.displayName + '!'}} />
+                  options = {{title: 'Welcome to WhisperLang!'}} />
                   <Stack.Screen
                   name = "RegName"
                   component = {RegName}
@@ -48,6 +62,10 @@ export default function App() {
                   name = "RegPassword"
                   component = {RegPassword}
                   options = {{title: 'Create a Password'}}
+                  /><Stack.Screen
+                  name = "UsersScreen"
+                  component = {UsersScreen}
+                  options = {{title: 'Call Someone'}}
                   /><Stack.Screen
                   name = "VideoCallScreen" 
                   component = {VideoCallScreen}

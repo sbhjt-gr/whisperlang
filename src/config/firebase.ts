@@ -1,15 +1,18 @@
-import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeFirebase, getCurrentUser } from '../services/FirebaseService';
 
-const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+let initialized = false;
+
+export const initApp = async () => {
+  if (!initialized) {
+    await initializeFirebase();
+    initialized = true;
+  }
 };
 
-const app: FirebaseApp = initializeApp(firebaseConfig);
-
-export const auth: Auth = getAuth(app); 
+export const auth = {
+  currentUser: getCurrentUser(),
+  signOut: async () => {
+    const { logoutUser } = await import('../services/FirebaseService');
+    return logoutUser();
+  }
+}; 
