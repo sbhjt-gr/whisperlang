@@ -1,14 +1,9 @@
-export class JoinCodeService {
-  private static instance: JoinCodeService;
-  private activeCodes: Map<string, any> = new Map();
+// Global map to store active codes
+const activeCodes = new Map<string, any>();
 
-  static getInstance(): JoinCodeService {
-    if (!JoinCodeService.instance) {
-      JoinCodeService.instance = new JoinCodeService();
-    }
-    return JoinCodeService.instance;
-  }
+console.log('JoinCodeService: Module loaded, initializing global activeCodes map');
 
+export const joinCodeService = {
   generateJoinCode(): string {
     const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let result = '';
@@ -16,49 +11,68 @@ export class JoinCodeService {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
-  }
+  },
 
   registerCode(code: string, callData: any): void {
-    this.activeCodes.set(code, {
+    const registrationData = {
       ...callData,
       createdAt: Date.now(),
       active: true
-    });
-  }
+    };
+    activeCodes.set(code, registrationData);
+    console.log('JoinCodeService: Registered code', code, 'with data', registrationData);
+    console.log('JoinCodeService: Active codes map size', activeCodes.size);
+    console.log('JoinCodeService: All codes:', Array.from(activeCodes.keys()));
+  },
 
   isValidCode(code: string): boolean {
-    const callData = this.activeCodes.get(code);
-    if (!callData) return false;
-
-    const isExpired = Date.now() - callData.createdAt > 3600000;
-    if (isExpired) {
-      this.activeCodes.delete(code);
+    console.log('JoinCodeService: Checking validity of code', code);
+    console.log('JoinCodeService: Current active codes', Array.from(activeCodes.keys()));
+    
+    const callData = activeCodes.get(code);
+    if (!callData) {
+      console.log('JoinCodeService: No data found for code', code);
       return false;
     }
 
+    const isExpired = Date.now() - callData.createdAt > 3600000; // 1 hour
+    if (isExpired) {
+      console.log('JoinCodeService: Code expired', code);
+      activeCodes.delete(code);
+      return false;
+    }
+
+    console.log('JoinCodeService: Code is valid', code, 'active:', callData.active);
     return callData.active;
-  }
+  },
 
   getCallData(code: string): any | null {
     if (!this.isValidCode(code)) return null;
-    return this.activeCodes.get(code);
-  }
+    return activeCodes.get(code);
+  },
 
   deactivateCode(code: string): void {
-    const callData = this.activeCodes.get(code);
+    const callData = activeCodes.get(code);
     if (callData) {
       callData.active = false;
-      this.activeCodes.set(code, callData);
+      activeCodes.set(code, callData);
+      console.log('JoinCodeService: Deactivated code', code);
     }
-  }
+  },
 
   removeCode(code: string): void {
-    this.activeCodes.delete(code);
-  }
+    activeCodes.delete(code);
+    console.log('JoinCodeService: Removed code', code);
+    console.log('JoinCodeService: Remaining codes:', Array.from(activeCodes.keys()));
+  },
 
   getAllActiveCodes(): string[] {
-    return Array.from(this.activeCodes.keys()).filter(code => this.isValidCode(code));
-  }
-}
+    const allCodes = Array.from(activeCodes.keys());
+    return allCodes.filter(code => this.isValidCode(code));
+  },
 
-export const joinCodeService = JoinCodeService.getInstance();
+  // Debug method
+  debugActiveCodes(): void {
+    console.log('JoinCodeService: DEBUG - All codes in map:', Array.from(activeCodes.entries()));
+  }
+};

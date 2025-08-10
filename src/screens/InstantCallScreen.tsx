@@ -86,6 +86,10 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     };
     
     joinCodeService.registerCode(code, callData);
+    console.log('Generated and registered join code:', code);
+    console.log('Call data:', callData);
+    console.log('All active codes after registration:', joinCodeService.getAllActiveCodes());
+    
     return code;
   };
 
@@ -129,6 +133,13 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   const copyJoinCode = () => {
     Clipboard.setString(joinCode);
     Alert.alert('Copied!', 'Join code copied to clipboard');
+  };
+
+  const testJoinCode = () => {
+    console.log('Testing join code:', joinCode);
+    joinCodeService.debugActiveCodes();
+    const isValid = joinCodeService.isValidCode(joinCode);
+    Alert.alert('Test Result', `Code ${joinCode} is ${isValid ? 'VALID' : 'INVALID'}`);
   };
 
   const flipCamera = () => {
@@ -226,6 +237,18 @@ export default function InstantCallScreen({ navigation, route }: Props) {
                   >
                     <Ionicons name="share-outline" size={20} color="#ffffff" />
                     <Text style={styles.shareButtonText}>Share Code</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={[styles.shareButton, { marginTop: 10 }]} onPress={testJoinCode}>
+                  <LinearGradient
+                    colors={['#10b981', '#059669']}
+                    style={styles.shareButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name="checkmark-outline" size={20} color="#ffffff" />
+                    <Text style={styles.shareButtonText}>Test Code</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>

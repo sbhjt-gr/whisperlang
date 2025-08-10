@@ -57,8 +57,12 @@ export default function CallsScreen({ navigation }: Props) {
     if (id.trim()) {
       const cleanCode = id.trim().toUpperCase();
       
+      console.log('Attempting to join with code:', cleanCode);
+      console.log('Active codes:', joinCodeService.getAllActiveCodes());
+      
       if (joinCodeService.isValidCode(cleanCode)) {
         const callData = joinCodeService.getCallData(cleanCode);
+        console.log('Found valid code, call data:', callData);
         navigation.navigate('VideoCallScreen', {
           id: Date.now(),
           type: 'join',
@@ -69,6 +73,7 @@ export default function CallsScreen({ navigation }: Props) {
         if (!isNaN(numericId)) {
           navigation.navigate('VideoCallScreen', {id: numericId, type: 1});
         } else {
+          console.log('Code validation failed for:', cleanCode);
           Alert.alert("Invalid Code", "Please enter a valid meeting ID or join code.");
         }
       }
