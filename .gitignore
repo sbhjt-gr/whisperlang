@@ -69,3 +69,6 @@ index.js
 
 # OS generated files
 Thumbs.db
+
+# Others
+scripts/
