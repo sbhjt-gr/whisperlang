@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, Alert, TouchableOpacity, StatusBar, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { View, StyleSheet, Image, Platform, ScrollView, Animated, Alert, TouchableOpacity, StatusBar, TextInput, Keyboard, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import { Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
-import * as Progress from 'react-native-progress';
 import { RootStackParamList } from '../../types/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +44,6 @@ export default function RegisterScreen({ navigation }: Props) {
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [focusedField, setFocusedField] = useState<string>('');
   const [keyboardVisible, setKeyboardVisible] = useState<boolean>(false);
-  const { width } = useWindowDimensions();
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -242,16 +240,6 @@ export default function RegisterScreen({ navigation }: Props) {
       <View style={[styles.floatingCircle, styles.circle3]} />
       
       <SafeAreaView style={styles.safeArea}>
-        {isLoading && (
-        <Modal visible={isLoading} transparent>
-          <View style={styles.modal}>
-            <View style={styles.modalContent}>
-              <Progress.Bar width={width * 0.6} indeterminate={true} color="#667eea" />
-              <Text style={styles.loadingText}>Creating your account...</Text>
-            </View>
-          </View>
-        </Modal>
-      )}
 
       <TouchableWithoutFeedback onPress={() => {}}>
         <ScrollView 
@@ -314,8 +302,17 @@ export default function RegisterScreen({ navigation }: Props) {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
-                  <Ionicons name="person-add-outline" size={20} color="#ffffff" style={styles.buttonIcon} />
-                  <Text style={styles.registerButtonText}>Create Account</Text>
+                  {isLoading ? (
+                    <>
+                      <ActivityIndicator color="#ffffff" style={styles.buttonIcon} />
+                      <Text style={styles.registerButtonText}>Creating account...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="person-add-outline" size={20} color="#ffffff" style={styles.buttonIcon} />
+                      <Text style={styles.registerButtonText}>Create Account</Text>
+                    </>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
               
