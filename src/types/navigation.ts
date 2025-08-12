@@ -2,7 +2,7 @@ export type RootStackParamList = {
   LoginScreen: undefined;
   HomeScreen: { signedUp?: number };
   RegisterScreen: undefined;
-  VideoCallScreen: { id: number; type?: number | string; joinCode?: string };
+  VideoCallScreen: { id: string; type?: 'join' | 'create' | 'incoming' | 'outgoing' | 'instant'; joinCode?: string };
   UsersScreen: undefined;
   InstantCallScreen: undefined;
 };

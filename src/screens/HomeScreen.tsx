@@ -47,14 +47,15 @@ export default function HomeScreen({ navigation, route }: Props) {
   
   const meet = (): void => {
     if (id.trim()) {
-      navigation.navigate('VideoCallScreen', {id: parseInt(id), type: 1});
+      navigation.navigate('VideoCallScreen', {id: id, type: 'join', joinCode: id});
     } else {
       Alert.alert("Missing Meeting ID", "Please enter a valid meeting ID to join the call.");
     }
   };
   
   const createMeeting = (): void => {
-    navigation.navigate('UsersScreen');
+    const meetingId = `MEET_${Date.now()}`;
+    navigation.navigate('VideoCallScreen', {id: meetingId});
   };
   
   const LogOut = async (): Promise<void> => {
@@ -181,7 +182,7 @@ export default function HomeScreen({ navigation, route }: Props) {
                   placeholderTextColor="#9ca3af"
                   value={id}
                   onChangeText={setID}
-                  keyboardType="decimal-pad"
+                  keyboardType="default"
                   onFocus={() => setFocusedField('meetingId')}
                   onBlur={() => setFocusedField('')}
                   onSubmitEditing={meet}

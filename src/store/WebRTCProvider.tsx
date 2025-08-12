@@ -4,15 +4,25 @@ import {
   mediaDevices,
   MediaStream,
   MediaStreamConstraints,
+  RTCPeerConnection,
+  RTCIceCandidate,
+  RTCSessionDescription,
 } from 'react-native-webrtc';
 import socketio from 'socket.io-client';
 import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
-import Peer from 'react-native-peerjs';
 
 const SERVER_URL = 'https://whisperlang-render.onrender.com';
-const PEER_SERVER_HOST = 'whisperlang-render.onrender.com';
-const PEER_SERVER_PORT = 443;
-const PEER_SERVER_PATH = '/peerjs';
+
+const ICE_SERVERS = {
+  iceServers: [
+    {
+      urls: [
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+      ],
+    },
+  ],
+};
 
 const initialValues: WebRTCContextType = {
   username: '',
@@ -30,6 +40,10 @@ const initialValues: WebRTCContextType = {
   closeCall: () => {},
   reset: () => {},
   activeCall: null,
+  createMeeting: () => Promise.resolve(''),
+  joinMeeting: () => Promise.resolve(false),
+  leaveMeeting: () => {},
+  currentMeetingId: null,
 };
 
 export const WebRTCContext = React.createContext(initialValues);
@@ -50,32 +64,19 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   );
   const [remoteUser, setRemoteUser] = useState<User | null>(null);
   const [socket, setSocket] = useState<any>(null);
-  const [peerServer, setPeerServer] = useState<any>(null);
   const [isMuted, setIsMuted] = useState(initialValues.isMuted);
   const [activeCall, setActiveCall] = useState<any>(null);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [participants, setParticipants] = useState<User[]>([]);
 
   const initialize = async (currentUsername?: string) => {
     console.log('=== WEBRTC INITIALIZE START ===');
-    console.log('Current username param:', currentUsername);
-    console.log('Existing username state:', username);
     
-    if (currentUsername) {
-      setUsername(currentUsername);
-      console.log('Set username to:', currentUsername);
-    }
+    const finalUsername = currentUsername || username || 'User';
+    console.log('Using username:', finalUsername);
+    setUsername(finalUsername);
     
-    console.log('Starting media device enumeration...');
-    const isFrontCamera = true;
-    const devices = await mediaDevices.enumerateDevices();
-    console.log('Found devices:', devices.length);
-
-    const facing = isFrontCamera ? 'front' : 'environment';
-    const videoSourceId = devices.find(
-      (device: any) => device.kind === 'videoinput' && device.facing === facing,
-    );
-    console.log('Video source ID:', videoSourceId?.deviceId || 'Not found');
-    
-    const facingMode = isFrontCamera ? 'user' : 'environment';
     const constraints: MediaStreamConstraints = {
       audio: true,
       video: {
@@ -84,25 +85,20 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           minHeight: 720,
           minFrameRate: 30,
         },
-        facingMode,
-        optional: videoSourceId ? [{sourceId: videoSourceId}] : [],
+        facingMode: 'user',
       },
     };
-    console.log('Media constraints:', constraints);
 
     try {
-      console.log('Requesting user media...');
+      console.log('Requesting user media with constraints:', constraints);
       const newStream = await mediaDevices.getUserMedia(constraints);
       console.log('Got local stream:', newStream.id);
-      console.log('Audio tracks:', newStream.getAudioTracks().length);
-      console.log('Video tracks:', newStream.getVideoTracks().length);
       setLocalStream(newStream as MediaStream);
     } catch (error) {
       console.error('Failed to get user media:', error);
-      throw error;
+      throw new Error(`Failed to access camera/microphone: ${error}`);
     }
 
-    console.log('Connecting to socket server:', SERVER_URL);
     const io = socketio.connect(SERVER_URL, {
       reconnection: true,
       autoConnect: true,
@@ -111,157 +107,194 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     io.on('connect', () => {
       console.log('Socket connected successfully');
       setSocket(io);
-      const finalUsername = currentUsername || username;
       console.log('Registering user:', finalUsername);
       io.emit('register', finalUsername);
-    });
-
-    io.on('disconnect', () => {
-      console.log('Socket disconnected');
-    });
-
-    io.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      setPeerId(io.id || '');
     });
 
     io.on('users-change', (users: User[]) => {
-      console.log('Users changed, new list:', users);
       setUsers(users);
     });
 
-    io.on('accepted-call', (user: User) => {
-      setRemoteUser(user);
+    io.on('user-joined', (user: User) => {
+      console.log('User joined meeting:', user.username);
+      setParticipants(prev => [...prev, user]);
+      // Create peer connection for new user
+      if (localStream) {
+        createPeerConnection(user, true);
+      }
     });
 
-    io.on('rejected-call', (user: User) => {
-      setRemoteUser(null);
-      setActiveCall(null);
-      Alert.alert('Your call request rejected by ' + user?.username);
+    io.on('user-left', (user: User) => {
+      console.log('User left meeting:', user.username);
+      setParticipants(prev => prev.filter(p => p.id !== user.id));
+      if (user.id === remoteUser?.id) {
+        setRemoteUser(null);
+        setRemoteStream(null);
+      }
     });
 
-    io.on('not-available', (username: string) => {
-      setRemoteUser(null);
-      setActiveCall(null);
-      Alert.alert(username + ' is not available right now');
+    io.on('meeting-ended', () => {
+      Alert.alert('Meeting ended');
+      leaveMeeting();
     });
 
-    console.log('Creating peer server connection...');
-    console.log('Peer config:', {
-      host: PEER_SERVER_HOST,
-      path: PEER_SERVER_PATH,
-      secure: true,
-      port: PEER_SERVER_PORT,
+    // WebRTC signaling handlers
+    io.on('offer', async (data) => {
+      const { offer, fromPeerId, fromUsername } = data;
+      console.log('Received offer from:', fromUsername);
+      
+      const pc = createPeerConnection({ 
+        peerId: fromPeerId, 
+        username: fromUsername,
+        id: fromPeerId
+      }, false);
+      
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      
+      io.emit('answer', {
+        answer: answer,
+        targetPeerId: fromPeerId,
+        meetingId: currentMeetingId
+      });
     });
 
-    const peerServer = new Peer(undefined, {
-      host: PEER_SERVER_HOST,
-      path: PEER_SERVER_PATH,
-      secure: true,
-      port: PEER_SERVER_PORT,
-      config: {
-        iceServers: [
-          {
-            urls: [
-              'stun:stun1.l.google.com:19302',
-              'stun:stun2.l.google.com:19302',
-            ],
-          },
-        ],
-      },
+    io.on('answer', async (data) => {
+      const { answer } = data;
+      console.log('Received answer');
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      }
     });
 
-    peerServer.on('error', (err: Error) => {
-      console.error('Peer server error:', err);
+    io.on('ice-candidate', async (data) => {
+      const { candidate } = data;
+      if (peerConnection && candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
     });
 
-    peerServer.on('open', (peerId: string) => {
-      console.log('Peer server opened with ID:', peerId);
-      setPeerServer(peerServer);
-      setPeerId(peerId);
-      console.log('Emitting set-peer-id to socket...');
-      io.emit('set-peer-id', peerId);
-    });
+    setSocket(io);
+  };
 
-    peerServer.on('disconnected', () => {
-      console.log('Peer server disconnected');
-    });
+  const createPeerConnection = (user: User, isInitiator: boolean): RTCPeerConnection => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    
+    // Add local stream
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        pc.addTrack(track, localStream);
+      });
+    }
 
-    peerServer.on('close', () => {
-      console.log('Peer server connection closed');
-    });
+    pc.onicecandidate = (event) => {
+      if (event.candidate && socket) {
+        socket.emit('ice-candidate', {
+          candidate: event.candidate,
+          targetPeerId: user.peerId,
+          meetingId: currentMeetingId
+        });
+      }
+    };
 
-    io.on('call', (user: User) => {
-      peerServer.on('call', (call: any) => {
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        setRemoteStream(event.streams[0] as MediaStream);
         setRemoteUser(user);
-        Alert.alert(
-          'New Call',
-          'You have a new call from ' + user?.username,
-          [
-            {
-              text: 'Reject',
-              onPress: () => {
-                io.emit('reject-call', user?.username);
-                setRemoteUser(null);
-                setActiveCall(null);
-              },
-              style: 'cancel',
-            },
-            {
-              text: 'Accept',
-              onPress: () => {
-                io.emit('accept-call', user?.username);
-                call.answer(newStream);
-                setActiveCall(call);
-                // Navigation will be handled by the calling component
-              },
-            },
-          ],
-          {cancelable: false},
-        );
+        setActiveCall(pc);
+      }
+    };
 
-        call.on('stream', (stream: MediaStream) => {
-          setRemoteStream(stream);
+    if (isInitiator) {
+      pc.createOffer().then(offer => {
+        pc.setLocalDescription(offer);
+        socket?.emit('offer', {
+          offer: offer,
+          targetPeerId: user.peerId,
+          meetingId: currentMeetingId
         });
+      });
+    }
 
-        call.on('close', () => {
-          closeCall();
-        });
+    setPeerConnection(pc);
+    return pc;
+  };
 
-        call.on('error', () => {});
+  const createMeeting = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!socket) {
+        reject('Socket not connected');
+        return;
+      }
+      
+      socket.emit('create-meeting', (response: any) => {
+        if (response.success) {
+          setCurrentMeetingId(response.meetingId);
+          console.log('Meeting created:', response.meetingId);
+          resolve(response.meetingId);
+        } else {
+          reject(response.error);
+        }
       });
     });
   };
 
+  const joinMeeting = (meetingId: string): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+      if (!socket) {
+        reject('Socket not connected');
+        return;
+      }
+      
+      socket.emit('join-meeting', meetingId, (response: any) => {
+        if (response.success) {
+          setCurrentMeetingId(meetingId);
+          setParticipants(response.participants || []);
+          console.log('Joined meeting:', meetingId);
+          
+          // Create peer connections for existing participants
+          response.participants?.forEach((participant: User) => {
+            if (localStream) {
+              createPeerConnection(participant, true);
+            }
+          });
+          
+          resolve(true);
+        } else {
+          console.error('Failed to join meeting:', response.error);
+          resolve(false);
+        }
+      });
+    });
+  };
+
+  const leaveMeeting = () => {
+    if (socket) {
+      socket.emit('leave-meeting');
+    }
+    
+    if (peerConnection) {
+      peerConnection.close();
+      setPeerConnection(null);
+    }
+    
+    setCurrentMeetingId(null);
+    setParticipants([]);
+    setRemoteUser(null);
+    setRemoteStream(null);
+    setActiveCall(null);
+  };
+
   const call = (user: User) => {
-    if (!peerServer || !socket) {
-      Alert.alert('Peer server or socket connection not found');
+    if (!socket || !localStream) {
+      Alert.alert('Not ready to make calls');
       return;
     }
 
-    if (!user.peerId) {
-      Alert.alert('User not connected to peer server');
-      return;
-    }
-
-    socket.emit('call', user.username);
     setRemoteUser(user);
-
-    try {
-      const call = peerServer.call(user.peerId, localStream);
-
-      call.on(
-        'stream',
-        (stream: MediaStream) => {
-          setActiveCall(call);
-          setRemoteStream(stream);
-        },
-        (err: Error) => {
-          console.error('Failed to get call stream', err);
-        },
-      );
-    } catch (error) {
-      console.log('Calling error', error);
-    }
+    createPeerConnection(user, true);
   };
 
   const switchCamera = () => {
@@ -280,17 +313,23 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   };
 
   const closeCall = () => {
-    activeCall?.close();
+    if (peerConnection) {
+      peerConnection.close();
+      setPeerConnection(null);
+    }
     setActiveCall(null);
     setRemoteUser(null);
-    Alert.alert('Call is ended');
+    setRemoteStream(null);
+    leaveMeeting();
   };
 
   const reset = async () => {
-    peerServer?.destroy();
     socket?.disconnect();
-    setActiveCall(null);
-    setRemoteUser(null);
+    if (peerConnection) {
+      peerConnection.close();
+      setPeerConnection(null);
+    }
+    leaveMeeting();
     setLocalStream(null);
     setRemoteStream(null);
     setUsername('');
@@ -319,6 +358,10 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         reset,
         remoteUser,
         activeCall,
+        createMeeting,
+        joinMeeting,
+        leaveMeeting,
+        currentMeetingId,
       }}>
       {children}
     </WebRTCContext.Provider>

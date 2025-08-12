@@ -77,18 +77,24 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     const currentUser = auth.currentUser;
     console.log('Current user:', currentUser?.displayName || currentUser?.email);
     
-    if (currentUser?.displayName) {
-      console.log('Setting username and initializing WebRTC...');
-      setUsername(currentUser.displayName);
+    if (currentUser) {
+      const username = currentUser.displayName || currentUser.email?.split('@')[0] || 'User';
+      console.log('Setting username and initializing WebRTC:', username);
+      setUsername(username);
       
       try {
-        await initialize(currentUser.displayName);
+        await initialize(username);
         console.log('WebRTC initialization completed for instant call');
       } catch (error) {
         console.error('Failed to initialize WebRTC in instant call:', error);
+        Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
       }
     } else {
-      console.warn('No user display name found, cannot initialize WebRTC');
+      console.warn('No user authenticated, cannot initialize WebRTC');
+      Alert.alert('Authentication Error', 'You must be signed in to start a call.', [
+        { text: 'Sign In', onPress: () => navigation.navigate('LoginScreen' as any) },
+        { text: 'Cancel', onPress: () => navigation.goBack() }
+      ]);
     }
   };
 
@@ -96,9 +102,10 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     const code = joinCodeService.generateJoinCode();
     
     const currentUser = auth.currentUser;
+    const hostName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Host';
     const callData = {
-      hostId: currentUser?.uid,
-      hostName: currentUser?.displayName || 'Host',
+      hostId: currentUser?.uid || 'unknown',
+      hostName: hostName,
       createdAt: Date.now(),
       active: true,
     };
