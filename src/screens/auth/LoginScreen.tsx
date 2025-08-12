@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, TouchableOpacity, StatusBar, TextInput } from 'react-native';
+import { View, StyleSheet, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, TouchableOpacity, StatusBar, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { loginWithEmail, initializeFirebase, signInWithGoogleLogin } from '../../services/FirebaseService';
@@ -23,6 +23,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [emailFocused, setEmailFocused] = useState<boolean>(false);
   const [passwordFocused, setPasswordFocused] = useState<boolean>(false);
+  const [keyboardVisible, setKeyboardVisible] = useState<boolean>(false);
   const { width, height } = useWindowDimensions();
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -48,6 +49,18 @@ export default function LoginScreen({ navigation }: Props) {
         useNativeDriver: true,
       }),
     ]).start();
+
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
   }, []);
   
   const signIn = async (): Promise<void> => {
@@ -122,8 +135,9 @@ export default function LoginScreen({ navigation }: Props) {
     setFocused: (focused: boolean) => void
   ) => (
     <Animated.View style={[styles.inputContainer, { opacity: fadeAnim }]}>
-      <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused]}>
-        <Ionicons name={icon} size={20} color={focused ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
+      <TouchableWithoutFeedback>
+        <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused]}>
+          <Ionicons name={icon} size={20} color={focused ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
         <TextInput
           style={styles.textInput}
           placeholder={placeholder}
@@ -133,9 +147,19 @@ export default function LoginScreen({ navigation }: Props) {
           secureTextEntry={isPassword && !showPassword}
           keyboardType={placeholder.includes('Email') ? 'email-address' : 'default'}
           autoCapitalize="none"
-          onFocus={() => setFocused(true)}
+          autoComplete="off"
+          autoCorrect={false}
+          textContentType="none"
+          passwordRules=""
+          onFocus={() => {
+            setFocused(true);
+            setKeyboardVisible(true);
+          }}
           onBlur={() => setFocused(false)}
           onSubmitEditing={isPassword ? signIn : undefined}
+          blurOnSubmit={false}
+          returnKeyType={isPassword ? 'done' : 'next'}
+          importantForAutofill="no"
         />
         {isPassword && (
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
@@ -145,8 +169,9 @@ export default function LoginScreen({ navigation }: Props) {
               color="#9ca3af" 
             />
           </TouchableOpacity>
-        )}
-      </View>
+                  )}
+        </View>
+      </TouchableWithoutFeedback>
     </Animated.View>
   );
     
@@ -179,15 +204,15 @@ export default function LoginScreen({ navigation }: Props) {
         </Modal>
       )}
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
+      <TouchableWithoutFeedback onPress={() => {}}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+          scrollEnabled={true}
+          automaticallyAdjustKeyboardInsets={false}
         >
           {/* Logo Section */}
           <Animated.View 
@@ -294,8 +319,8 @@ export default function LoginScreen({ navigation }: Props) {
               By signing in, you agree to our Terms of Service and Privacy Policy
             </Text>
           </Animated.View>
-        </KeyboardAvoidingView>
-      </ScrollView>
+        </ScrollView>
+      </TouchableWithoutFeedback>
       </SafeAreaView>
     </View>
   );
@@ -344,12 +369,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  keyboardView: {
-    flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 24,
+    minHeight: '100%',
   },
+
   logoSection: {
     alignItems: 'center',
     paddingTop: 60,

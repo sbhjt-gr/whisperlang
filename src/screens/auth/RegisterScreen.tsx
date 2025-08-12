@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, Alert, TouchableOpacity, StatusBar, TextInput } from 'react-native';
+import { View, StyleSheet, Modal, Image, useWindowDimensions, Platform, ScrollView, Animated, Alert, TouchableOpacity, StatusBar, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { Text } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as Progress from 'react-native-progress';
@@ -44,6 +44,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [focusedField, setFocusedField] = useState<string>('');
+  const [keyboardVisible, setKeyboardVisible] = useState<boolean>(false);
   const { width } = useWindowDimensions();
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -69,6 +70,18 @@ export default function RegisterScreen({ navigation }: Props) {
         useNativeDriver: true,
       }),
     ]).start();
+
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
   }, []);
 
   const validateForm = (): boolean => {
@@ -166,8 +179,9 @@ export default function RegisterScreen({ navigation }: Props) {
     
     return (
       <Animated.View style={[styles.inputContainer, { opacity: fadeAnim }]}>
-        <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused, error && styles.inputWrapperError]}>
-          <Ionicons name={icon} size={20} color={focused ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
+        <TouchableWithoutFeedback>
+          <View style={[styles.inputWrapper, focused && styles.inputWrapperFocused, error && styles.inputWrapperError]}>
+            <Ionicons name={icon} size={20} color={focused ? '#667eea' : '#9ca3af'} style={styles.inputIcon} />
           <TextInput
             style={styles.textInput}
             placeholder={placeholder}
@@ -177,9 +191,19 @@ export default function RegisterScreen({ navigation }: Props) {
             secureTextEntry={isPassword && !showPasswordIcon}
             keyboardType={keyboardType}
             autoCapitalize="none"
-            onFocus={() => setFocusedField(field)}
+            autoComplete="off"
+            autoCorrect={false}
+            textContentType="none"
+            passwordRules=""
+            onFocus={() => {
+              setFocusedField(field);
+              setKeyboardVisible(true);
+            }}
             onBlur={() => setFocusedField('')}
             onSubmitEditing={field === 'confirmPassword' ? handleRegister : undefined}
+            blurOnSubmit={false}
+            returnKeyType={field === 'confirmPassword' ? 'done' : 'next'}
+            importantForAutofill="no"
           />
           {isPassword && (
             <TouchableOpacity 
@@ -193,7 +217,8 @@ export default function RegisterScreen({ navigation }: Props) {
               />
             </TouchableOpacity>
           )}
-        </View>
+          </View>
+        </TouchableWithoutFeedback>
         {error && <Text style={styles.errorText}>{error}</Text>}
       </Animated.View>
     );
@@ -228,15 +253,15 @@ export default function RegisterScreen({ navigation }: Props) {
         </Modal>
       )}
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
+      <TouchableWithoutFeedback onPress={() => {}}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+          scrollEnabled={true}
+          automaticallyAdjustKeyboardInsets={false}
         >
           {/* Logo Section */}
           <Animated.View 
@@ -325,8 +350,8 @@ export default function RegisterScreen({ navigation }: Props) {
               By creating an account, you agree to our Terms of Service and Privacy Policy
             </Text>
           </Animated.View>
-        </KeyboardAvoidingView>
-      </ScrollView>
+        </ScrollView>
+      </TouchableWithoutFeedback>
       </SafeAreaView>
     </View>
   );
@@ -375,12 +400,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-  },
-  keyboardView: {
-    flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 24,
+    minHeight: '100%',
   },
+
   logoSection: {
     alignItems: 'center',
     paddingTop: 60,

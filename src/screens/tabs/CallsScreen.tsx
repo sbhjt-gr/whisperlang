@@ -5,8 +5,6 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../types/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { joinCodeService } from '../../services/JoinCodeService';
 
 type CallsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'HomeScreen'>;
 
