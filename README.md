@@ -66,6 +66,150 @@ WhisperLang is a comprehensive video calling application built with Expo and Rea
    FIREBASE_IOS_APP_ID=your-ios-app-id
    ```
 
+## 🚀 How to Run This Project
+
+### Quick Start (Local Development)
+
+1. **Start the Signaling Server First**
+   ```bash
+   # Navigate to server directory
+   cd ../whisperlang-server
+   
+   # Install server dependencies
+   npm install
+   
+   # Start the signaling server
+   npm start
+   # Server will run on http://localhost:3000
+   ```
+
+2. **Start the React Native App**
+   ```bash
+   # In a new terminal, navigate back to main app
+   cd ../whisperlang
+   
+   # Start the Expo development server
+   yarn start
+   ```
+
+3. **Choose Your Platform**
+   - Press `a` for Android emulator
+   - Press `i` for iOS simulator
+   - Press `w` for web browser
+   - Scan QR code with Expo Go app for physical device
+
+### Step-by-Step Setup Guide
+
+#### 1. Clone and Install
+```bash
+# Clone the repository
+git clone https://github.com/sbhjt-gr/whisperlang.git
+cd whisperlang
+
+# Install dependencies
+yarn install
+
+# Install Expo CLI globally if not already installed
+npm install -g @expo/cli
+```
+
+#### 2. Environment Setup
+Create a `.env` file in the root directory:
+```bash
+# Copy the example and fill in your values
+cp .env.example .env
+
+# Edit the file with your Firebase configuration
+nano .env
+```
+
+Required environment variables:
+```bash
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_API_KEY=your-api-key
+FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=123456789012
+FIREBASE_APP_ID=1:123456789012:web:abcdef123456
+
+# Google Sign-In (get from Firebase Console > Authentication > Sign-in method > Google)
+GOOGLE_SIGN_IN_WEB_CLIENT_ID=your-web-client-id.googleusercontent.com
+
+# Android specific (from google-services.json)
+FIREBASE_ANDROID_API_KEY=your-android-api-key
+FIREBASE_ANDROID_APP_ID=1:123456789012:android:abcdef123456
+
+# iOS specific (from GoogleService-Info.plist)
+FIREBASE_IOS_API_KEY=your-ios-api-key
+FIREBASE_IOS_APP_ID=1:123456789012:ios:abcdef123456
+FIREBASE_IOS_CLIENT_ID=your-ios-client-id.googleusercontent.com
+FIREBASE_IOS_REVERSED_CLIENT_ID=com.googleusercontent.apps.your-reversed-client-id
+FIREBASE_IOS_BUNDLE_ID=com.gorai.whisperlang
+```
+
+#### 3. Firebase Configuration Files
+Download and place the configuration files:
+
+**For Android:**
+```bash
+# Download google-services.json from Firebase Console
+# Place it in: android/app/google-services.json
+cp ~/Downloads/google-services.json android/app/
+```
+
+**For iOS:**
+```bash
+# Download GoogleService-Info.plist from Firebase Console
+# Place it in: ios/WhisperLang/GoogleService-Info.plist
+cp ~/Downloads/GoogleService-Info.plist ios/WhisperLang/
+```
+
+#### 4. Platform-Specific Setup
+
+**Android Setup:**
+```bash
+# Install Android Studio and set up Android SDK
+# Create an Android Virtual Device (AVD)
+# Or connect a physical Android device with USB debugging enabled
+
+# Verify Android setup
+npx expo run:android --device
+```
+
+**iOS Setup (macOS only):**
+```bash
+# Install Xcode from App Store
+# Install iOS Simulator
+# Install CocoaPods
+sudo gem install cocoapods
+
+# Install iOS dependencies
+cd ios && pod install && cd ..
+
+# Verify iOS setup
+npx expo run:ios --simulator
+```
+
+#### 5. Running the Complete System
+
+**Terminal 1 - Signaling Server:**
+```bash
+cd whisperlang-server
+npm install
+npm start
+# Server running on http://localhost:3000
+```
+
+**Terminal 2 - React Native App:**
+```bash
+cd whisperlang
+yarn start
+# Choose your platform:
+# - Press 'a' for Android
+# - Press 'i' for iOS
+# - Press 'w' for web
+```
+
 ### Development
 
 ```bash
@@ -76,6 +220,126 @@ yarn start
 yarn android    # Android device/emulator
 yarn ios        # iOS simulator
 yarn web        # Web browser
+```
+
+### Common Startup Issues & Solutions
+
+**"Metro bundler failed to start"**
+```bash
+# Clear Metro cache
+npx expo start --clear
+# or
+yarn start --clear
+```
+
+
+**"Android build failed"**
+```bash
+# Clean and rebuild
+cd android
+./gradlew clean
+cd ..
+npx expo run:android --clear
+```
+
+**"iOS build failed"**
+```bash
+# Clean iOS build
+cd ios
+xcodebuild clean
+rm -rf build/
+pod install
+cd ..
+npx expo run:ios --clear
+```
+
+**"Firebase configuration error"**
+```bash
+# Verify files exist
+ls android/app/google-services.json
+ls ios/WhisperLang/GoogleService-Info.plist
+
+# Check environment variables
+echo $FIREBASE_PROJECT_ID
+```
+
+**"WebRTC connection failed"**
+```bash
+# Make sure signaling server is running
+curl http://localhost:3000
+# Should return server status
+
+# Check server logs in Terminal 1
+# Restart server if needed
+```
+
+### Testing the Setup
+
+#### 1. Verify Signaling Server
+```bash
+# Test server endpoint
+curl http://localhost:3000
+# Should return: {"message": "WhisperLang WebRTC Signaling Server", "status": "Running", ...}
+
+# Check WebSocket connection (in browser console)
+const socket = io('http://localhost:3000');
+socket.on('connect', () => console.log('Connected to signaling server'));
+```
+
+#### 2. Test Authentication
+1. Open the app
+2. Try registering with email/password
+3. Test Google Sign-In (if configured)
+4. Verify you can log in and out
+
+#### 3. Test Video Calling
+1. **Single Device Test:**
+   - Create an instant meeting
+   - Note the meeting ID
+   - Join the same meeting from a web browser
+   - You should see yourself in both windows
+
+2. **Multi-Device Test:**
+   - Use two devices (or device + browser)
+   - Sign in with different accounts
+   - Create meeting on one device
+   - Join meeting on second device
+   - Test audio/video controls
+
+#### 4. Test Contact Integration
+1. Grant contacts permission
+2. Verify contacts load correctly
+3. Try initiating a video call from contacts
+4. Test contact search functionality
+
+### Quick Development Tips
+
+```bash
+# Hot reload after code changes
+# Press 'r' in terminal to reload
+# Press 'j' to open debugger
+
+# Clear all caches if issues persist
+npx expo start --clear --reset-cache
+
+# View app logs
+npx expo logs
+
+# Debug network requests
+npx expo start --dev-client --clear
+```
+
+### Performance Optimization for Development
+
+```bash
+# Use development build for better performance
+npx expo install expo-dev-client
+npx expo run:android --variant debug
+npx expo run:ios --configuration Debug
+
+# Enable debugging
+export EXPO_DEBUG=true
+export DEBUG=expo:*
 ```
 
 ## Configuration Requirements
@@ -272,15 +536,6 @@ const SERVER_URL = __DEV__
 # Check app permissions in device settings
 # Re-install the app to reset permissions
 expo install expo-camera
-```
-
-**Firebase Configuration Errors**
-```bash
-# Verify environment variables
-echo $FIREBASE_PROJECT_ID
-# Check configuration files placement
-ls android/app/google-services.json
-ls ios/WhisperLang/GoogleService-Info.plist
 ```
 
 **WebRTC Connection Failed**
