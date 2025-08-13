@@ -66,10 +66,6 @@ WhisperLang is a comprehensive video calling application built with Expo and Rea
    FIREBASE_IOS_APP_ID=your-ios-app-id
    ```
 
-4. **Platform Setup**
-   - **Android**: Place `google-services.json` in `android/app/`
-   - **iOS**: Place `GoogleService-Info.plist` in `ios/WhisperLang/`
-
 ### Development
 
 ```bash
@@ -82,7 +78,7 @@ yarn ios        # iOS simulator
 yarn web        # Web browser
 ```
 
-## ⚙️ Configuration Requirements
+## Configuration Requirements
 
 ### Firebase Setup
 1. **Create a Firebase project** at [Firebase Console](https://console.firebase.google.com)
