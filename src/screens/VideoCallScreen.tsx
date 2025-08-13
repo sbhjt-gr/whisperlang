@@ -114,6 +114,10 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             Alert.alert('Error', 'Could not join meeting. Please check the meeting ID and try again.');
             navigation.goBack();
           }
+        } else if (route.params.type === 'instant' && route.params.joinCode) {
+          // Already in a meeting created by InstantCallScreen
+          console.log('Entering instant call meeting:', route.params.joinCode);
+          // No need to create or join - meeting already exists from InstantCallScreen
         } else if (!route.params.type) {
           // Create new meeting
           console.log('Creating new meeting...');

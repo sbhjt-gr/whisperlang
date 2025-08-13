@@ -19,8 +19,6 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { WebRTCContext } from '../store/WebRTCProvider';
-import { auth } from '../config/firebase';
-import { joinCodeService } from '../services/JoinCodeService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,7 +39,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const { initialize, setUsername, localStream, remoteUser, activeCall } = useContext(WebRTCContext);
+  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, currentMeetingId, leaveMeeting } = useContext(WebRTCContext);
 
   useEffect(() => {
     initializeCall();
@@ -70,10 +68,6 @@ export default function InstantCallScreen({ navigation, route }: Props) {
       console.log('Camera permission granted');
     }
 
-    const code = generateJoinCode();
-    setJoinCode(code);
-    console.log('Generated join code:', code);
-    
     const currentUser = auth.currentUser;
     console.log('Current user:', currentUser?.displayName || currentUser?.email);
     
@@ -85,6 +79,11 @@ export default function InstantCallScreen({ navigation, route }: Props) {
       try {
         await initialize(username);
         console.log('WebRTC initialization completed for instant call');
+        
+        // Create a meeting after WebRTC is initialized
+        const meetingId = await createMeeting();
+        setJoinCode(meetingId);
+        console.log('Meeting created with ID:', meetingId);
       } catch (error) {
         console.error('Failed to initialize WebRTC in instant call:', error);
         Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
@@ -98,21 +97,6 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     }
   };
 
-  const generateJoinCode = (): string => {
-    const code = joinCodeService.generateJoinCode();
-    
-    const currentUser = auth.currentUser;
-    const hostName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Host';
-    const callData = {
-      hostId: currentUser?.uid || 'unknown',
-      hostName: hostName,
-      createdAt: Date.now(),
-      active: true,
-    };
-    
-    joinCodeService.registerCode(code, callData);
-    return code;
-  };
 
   const startAnimations = () => {
     Animated.timing(fadeAnim, {
@@ -161,12 +145,12 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   };
 
   const startCall = () => {
-    if (activeCall || remoteUser) {
+    if (activeCall || remoteUser || currentMeetingId) {
       setIsWaitingForUsers(false);
       navigation.navigate('VideoCallScreen', {
-        id: Date.now(),
+        id: currentMeetingId || joinCode,
         type: 'instant',
-        joinCode: joinCode
+        joinCode: currentMeetingId || joinCode
       });
     } else {
       Alert.alert('No users connected', 'Waiting for someone to join with your code.');
@@ -174,9 +158,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   };
 
   const endCall = () => {
-    if (joinCode) {
-      joinCodeService.removeCode(joinCode);
-    }
+    leaveMeeting();
     navigation.goBack();
   };
 
@@ -191,7 +173,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   if (!permission.granted) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="camera-off" size={64} color="#ef4444" />
+        <Ionicons name="camera-outline" size={64} color="#ef4444" />
         <Text style={styles.errorText}>Camera permission required</Text>
         <TouchableOpacity style={styles.backButton} onPress={requestPermission}>
           <Text style={styles.backButtonText}>Grant Permission</Text>

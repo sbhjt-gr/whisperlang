@@ -11,7 +11,7 @@ import {
 import socketio from 'socket.io-client';
 import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
 
-const SERVER_URL = 'https://whisperlang-render.onrender.com';
+const SERVER_URL = __DEV__ ? 'http://localhost:3000' : 'https://whisperlang-render.onrender.com';
 
 const ICE_SERVERS = {
   iceServers: [

@@ -86,7 +86,9 @@ export default function CallsScreen({ navigation }: Props) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        automaticallyAdjustKeyboardInsets={false}
       >
         {/* Hero Section with Live Translation Badge */}
         <Animated.View 
@@ -251,6 +253,12 @@ export default function CallsScreen({ navigation }: Props) {
                 onBlur={() => setFocusedField('')}
                 onSubmitEditing={meet}
                 autoCapitalize="characters"
+                autoComplete="off"
+                autoCorrect={false}
+                textContentType="none"
+                importantForAutofill="no"
+                blurOnSubmit={false}
+                returnKeyType="go"
               />
               {id.trim() && (
                 <TouchableOpacity onPress={() => setID('')}>
