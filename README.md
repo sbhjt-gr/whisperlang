@@ -66,7 +66,7 @@ WhisperLang is a comprehensive video calling application built with Expo and Rea
    FIREBASE_IOS_APP_ID=your-ios-app-id
    ```
 
-## 🚀 How to Run This Project
+## How to Run This Project
 
 ### Quick Start (Local Development)
 
