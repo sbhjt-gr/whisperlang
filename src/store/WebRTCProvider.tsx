@@ -11,7 +11,23 @@ import {
 import socketio from 'socket.io-client';
 import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
 
-const SERVER_URL = __DEV__ ? 'http://localhost:3000' : 'https://whisperlang-render.onrender.com';
+const getServerURL = () => {
+  if (!__DEV__) {
+    return 'https://whisperlang-render.onrender.com';
+  }
+  
+  // For development, use the appropriate localhost address based on platform
+  const { Platform } = require('react-native');
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:3000'; // Android emulator localhost mapping
+  } else if (Platform.OS === 'ios') {
+    return 'http://localhost:3000'; // iOS simulator can use localhost
+  } else {
+    return 'http://localhost:3000'; // Web and other platforms
+  }
+};
+
+const SERVER_URL = getServerURL();
 
 const ICE_SERVERS = {
   iceServers: [
@@ -70,7 +86,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [participants, setParticipants] = useState<User[]>([]);
 
-  const initialize = async (currentUsername?: string) => {
+  const initialize = async (currentUsername?: string): Promise<void> => {
     console.log('=== WEBRTC INITIALIZE START ===');
     
     const finalUsername = currentUsername || username || 'User';
@@ -99,84 +115,107 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       throw new Error(`Failed to access camera/microphone: ${error}`);
     }
 
-    const io = socketio.connect(SERVER_URL, {
-      reconnection: true,
-      autoConnect: true,
-    });
+    return new Promise((resolve, reject) => {
+      console.log('Attempting to connect to:', SERVER_URL);
+      const io = socketio.connect(SERVER_URL, {
+        reconnection: true,
+        autoConnect: true,
+        timeout: 20000,
+        transports: ['websocket', 'polling'],
+        forceNew: true,
+      });
 
-    io.on('connect', () => {
-      console.log('Socket connected successfully');
-      setSocket(io);
-      console.log('Registering user:', finalUsername);
-      io.emit('register', finalUsername);
-      setPeerId(io.id || '');
-    });
+      const connectionTimeout = setTimeout(() => {
+        console.error('Socket connection timeout after 15 seconds');
+        io.disconnect();
+        reject(new Error('Socket connection timeout'));
+      }, 15000);
 
-    io.on('users-change', (users: User[]) => {
-      setUsers(users);
-    });
+      io.on('connect', () => {
+        clearTimeout(connectionTimeout);
+        console.log('Socket connected successfully');
+        setSocket(io);
+        console.log('Registering user:', finalUsername);
+        io.emit('register', finalUsername);
+        setPeerId(io.id || '');
+        resolve();
+      });
 
-    io.on('user-joined', (user: User) => {
-      console.log('User joined meeting:', user.username);
-      setParticipants(prev => [...prev, user]);
-      // Create peer connection for new user
-      if (localStream) {
-        createPeerConnection(user, true);
-      }
-    });
+      io.on('connect_error', (error) => {
+        clearTimeout(connectionTimeout);
+        console.error('Socket connection failed:', error);
+        console.error('Attempted to connect to:', SERVER_URL);
+        console.error('Error details:', error.message, error.description, error.context);
+        io.disconnect();
+        reject(new Error(`Socket connection failed: ${error.message || error}`));
+      });
 
-    io.on('user-left', (user: User) => {
-      console.log('User left meeting:', user.username);
-      setParticipants(prev => prev.filter(p => p.id !== user.id));
-      if (user.id === remoteUser?.id) {
-        setRemoteUser(null);
-        setRemoteStream(null);
-      }
-    });
+      io.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+      });
 
-    io.on('meeting-ended', () => {
-      Alert.alert('Meeting ended');
-      leaveMeeting();
-    });
+      io.on('users-change', (users: User[]) => {
+        setUsers(users);
+      });
 
-    // WebRTC signaling handlers
-    io.on('offer', async (data) => {
-      const { offer, fromPeerId, fromUsername } = data;
-      console.log('Received offer from:', fromUsername);
-      
-      const pc = createPeerConnection({ 
-        peerId: fromPeerId, 
-        username: fromUsername,
-        id: fromPeerId
-      }, false);
-      
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      
-      io.emit('answer', {
-        answer: answer,
-        targetPeerId: fromPeerId,
-        meetingId: currentMeetingId
+      io.on('user-joined', (user: User) => {
+        console.log('User joined meeting:', user.username);
+        setParticipants(prev => [...prev, user]);
+        if (localStream) {
+          createPeerConnection(user, true);
+        }
+      });
+
+      io.on('user-left', (user: User) => {
+        console.log('User left meeting:', user.username);
+        setParticipants(prev => prev.filter(p => p.id !== user.id));
+        if (user.id === remoteUser?.id) {
+          setRemoteUser(null);
+          setRemoteStream(null);
+        }
+      });
+
+      io.on('meeting-ended', () => {
+        Alert.alert('Meeting ended');
+        leaveMeeting();
+      });
+
+      io.on('offer', async (data) => {
+        const { offer, fromPeerId, fromUsername } = data;
+        console.log('Received offer from:', fromUsername);
+        
+        const pc = createPeerConnection({ 
+          peerId: fromPeerId, 
+          username: fromUsername,
+          id: fromPeerId
+        }, false);
+        
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        
+        io.emit('answer', {
+          answer: answer,
+          targetPeerId: fromPeerId,
+          meetingId: currentMeetingId
+        });
+      });
+
+      io.on('answer', async (data) => {
+        const { answer } = data;
+        console.log('Received answer');
+        if (peerConnection) {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        }
+      });
+
+      io.on('ice-candidate', async (data) => {
+        const { candidate } = data;
+        if (peerConnection && candidate) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        }
       });
     });
-
-    io.on('answer', async (data) => {
-      const { answer } = data;
-      console.log('Received answer');
-      if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-      }
-    });
-
-    io.on('ice-candidate', async (data) => {
-      const { candidate } = data;
-      if (peerConnection && candidate) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
-
-    setSocket(io);
   };
 
   const createPeerConnection = (user: User, isInitiator: boolean): RTCPeerConnection => {
@@ -225,17 +264,27 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const createMeeting = (): Promise<string> => {
     return new Promise((resolve, reject) => {
       if (!socket) {
+        console.error('Socket not connected when creating meeting');
         reject('Socket not connected');
         return;
       }
       
+      if (!socket.connected) {
+        console.error('Socket not connected when creating meeting');
+        reject('Socket not connected to server');
+        return;
+      }
+      
+      console.log('Emitting create-meeting event to server');
       socket.emit('create-meeting', (response: any) => {
-        if (response.success) {
+        console.log('Received response from server:', response);
+        if (response && response.success) {
           setCurrentMeetingId(response.meetingId);
-          console.log('Meeting created:', response.meetingId);
+          console.log('Meeting created successfully:', response.meetingId);
           resolve(response.meetingId);
         } else {
-          reject(response.error);
+          console.error('Failed to create meeting:', response?.error || 'Unknown error');
+          reject(response?.error || 'Failed to create meeting');
         }
       });
     });

@@ -10,7 +10,9 @@ export const initApp = async () => {
 };
 
 export const auth = {
-  currentUser: getCurrentUser(),
+  get currentUser() {
+    return getCurrentUser();
+  },
   signOut: async () => {
     const { logoutUser } = await import('../services/FirebaseService');
     return logoutUser();

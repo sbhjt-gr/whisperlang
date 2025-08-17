@@ -7,18 +7,19 @@ import {
   Dimensions,
   Alert,
   Animated,
-  Share,
-  Clipboard
+  Share
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import * as Clipboard from 'expo-clipboard';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { WebRTCContext } from '../store/WebRTCProvider';
+import { auth } from '../config/firebase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -81,9 +82,15 @@ export default function InstantCallScreen({ navigation, route }: Props) {
         console.log('WebRTC initialization completed for instant call');
         
         // Create a meeting after WebRTC is initialized
+        console.log('Creating meeting...');
         const meetingId = await createMeeting();
-        setJoinCode(meetingId);
         console.log('Meeting created with ID:', meetingId);
+        if (meetingId) {
+          setJoinCode(meetingId);
+        } else {
+          console.error('Meeting ID is empty or undefined');
+          Alert.alert('Error', 'Failed to generate meeting ID. Please try again.');
+        }
       } catch (error) {
         console.error('Failed to initialize WebRTC in instant call:', error);
         Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
@@ -123,6 +130,11 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   };
 
   const shareJoinCode = async () => {
+    if (!joinCode) {
+      Alert.alert('Please wait', 'Meeting code is still being generated.');
+      return;
+    }
+    
     try {
       const message = `Join my WhisperLang video call!\n\nJoin Code: ${joinCode}\n\nDownload WhisperLang and enter this code to join the call with real-time translation.`;
       
@@ -136,7 +148,12 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   };
 
   const copyJoinCode = () => {
-    Clipboard.setString(joinCode);
+    if (!joinCode) {
+      Alert.alert('Please wait', 'Meeting code is still being generated.');
+      return;
+    }
+    
+    Clipboard.setStringAsync(joinCode);
     Alert.alert('Copied!', 'Join code copied to clipboard');
   };
 
@@ -220,7 +237,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
             <View style={styles.joinCodeCard}>
               <Text style={styles.joinCodeLabel}>Share this code to invite others:</Text>
               <TouchableOpacity style={styles.joinCodeBox} onPress={copyJoinCode}>
-                <Text style={styles.joinCodeText}>{joinCode}</Text>
+                <Text style={styles.joinCodeText}>{joinCode || 'GENERATING...'}</Text>
                 <Ionicons name="copy-outline" size={20} color="#667eea" />
               </TouchableOpacity>
               <View style={styles.shareButtons}>

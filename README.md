@@ -410,30 +410,6 @@ yarn lint              # Run ESLint
 yarn test              # Run Jest tests
 ```
 
-## Production Builds
-
-### EAS Build Configuration
-WhisperLang uses **Expo Application Services (EAS)** for cloud builds:
-
-```bash
-# Install EAS CLI
-npm install -g eas-cli
-
-# Login to Expo account
-eas login
-
-# Configure builds (already set up in eas.json)
-eas build:configure
-
-# Build for production
-yarn build:android     # Creates Android AAB for Play Store
-yarn build:ios         # Creates iOS build for App Store
-
-# Build for testing
-eas build --platform android --profile preview  # APK for testing
-eas build --platform ios --profile development  # Development build
-```
-
 ### Build Profiles
 - **Development**: Local testing with development client
 - **Preview**: Internal distribution (APK for Android)
@@ -593,7 +569,7 @@ yarn build:android     # Test production build
 
 ## License
 
-This project is licensed under the GNU AFFERO GENERAL PUBLIC LICENSE v3.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU AFFERO GENERAL PUBLIC v3.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
