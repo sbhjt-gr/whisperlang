@@ -69,7 +69,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     console.log('=== VIDEO CALL SCREEN LAYOUT EFFECT ===');
     if(!route.params.type) {
         console.log('No type - creating new meeting');
-        // This will be handled in the main effect
     } else if(route.params.type === 'join' && route.params.joinCode) {
         console.log('Join type detected - will join with code:', route.params.joinCode);
     } else {
@@ -101,13 +100,11 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       const username = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
       
       try {
-        // Initialize WebRTC first
         console.log('Starting WebRTC initialization...');
         await initialize(username);
         console.log('WebRTC initialization completed');
         
         if (route.params.type === 'join' && route.params.joinCode) {
-          // Join existing meeting
           console.log('Joining meeting with code:', route.params.joinCode);
           const joined = await joinMeeting(route.params.joinCode);
           if (!joined) {
@@ -115,11 +112,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             navigation.goBack();
           }
         } else if (route.params.type === 'instant' && route.params.joinCode) {
-          // Already in a meeting created by InstantCallScreen
           console.log('Entering instant call meeting:', route.params.joinCode);
-          // No need to create or join - meeting already exists from InstantCallScreen
         } else if (!route.params.type) {
-          // Create new meeting
           console.log('Creating new meeting...');
           const meetingId = await createMeeting();
           Alert.alert(

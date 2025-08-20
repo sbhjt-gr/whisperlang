@@ -50,7 +50,7 @@ export class VideoCallService {
   convertContactToUser(contact: Contact): User {
     return {
       username: contact.name,
-      peerId: '', // Will be set when user connects
+      peerId: '', 
       id: contact.id,
       name: contact.name,
       phoneNumbers: contact.phoneNumbers,
@@ -64,7 +64,6 @@ export class VideoCallService {
         return;
       }
 
-      // Initialize WebRTC if not already done
       if (!this.webRTCContext.localStream) {
         const initialized = await this.initializeVideoCall();
         if (!initialized) {
@@ -73,8 +72,6 @@ export class VideoCallService {
         }
       }
 
-      // For now, show a placeholder call since we don't have a real peer discovery system
-      // In a real implementation, you would discover peers through a signaling server
       Alert.alert(
         'Video Call',
         `Starting video call with ${contact.name}...`,
@@ -94,14 +91,10 @@ export class VideoCallService {
 
   private startMockCall(contact: Contact) {
     try {
-      // Set up a mock remote user for demonstration
       const mockUser = this.convertContactToUser(contact);
       mockUser.peerId = `mock_${contact.id}_${Date.now()}`;
       
-      // Simulate setting remote user
       if (this.webRTCContext.setRemoteUser) {
-        // This would normally be done through peer discovery
-        // For now, we'll navigate to call screen to show the UI
         this.navigateToCallScreen(contact);
       }
     } catch (error) {
@@ -149,8 +142,6 @@ export class VideoCallService {
   private acceptCall(caller: User) {
     try {
       if (this.webRTCContext) {
-        // This would normally be handled by the WebRTC context
-        // For now, navigate to call screen
         if (this.navigationRef?.current) {
           this.navigationRef.current.navigate('VideoCallScreen', {
             id: `call_${caller.id || caller.username}`,
@@ -166,7 +157,6 @@ export class VideoCallService {
 
   private declineCall(caller: User) {
     try {
-      // Emit reject call event if socket is available
       console.log(`Declined call from ${caller.name || caller.username}`);
     } catch (error) {
       console.error('Error declining call:', error);
@@ -180,7 +170,6 @@ export class VideoCallService {
       }
       
       if (this.navigationRef?.current) {
-        // Navigate back to previous screen
         this.navigationRef.current.goBack();
       }
     } catch (error) {
@@ -188,12 +177,10 @@ export class VideoCallService {
     }
   }
 
-  // Utility method to check if video calling is available
   isVideoCallAvailable(): boolean {
     return this.webRTCContext && this.webRTCContext.localStream !== null;
   }
 
-  // Get current call status
   getCallStatus() {
     if (!this.webRTCContext) return 'unavailable';
     

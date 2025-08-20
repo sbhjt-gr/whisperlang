@@ -81,7 +81,6 @@ export default function InstantCallScreen({ navigation, route }: Props) {
         await initialize(username);
         console.log('WebRTC initialization completed for instant call');
         
-        // Create a meeting after WebRTC is initialized
         console.log('Creating meeting...');
         const meetingId = await createMeeting();
         console.log('Meeting created with ID:', meetingId);

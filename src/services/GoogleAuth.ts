@@ -1,28 +1,20 @@
-import { Platform } from 'react-native';
 import { 
   signInWithCredential, 
   GoogleAuthProvider
 } from '@react-native-firebase/auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import Constants from 'expo-constants';
 import { getAuthInstance } from './FirebaseInstances';
 import { storeAuthState } from './AuthStorage';
 
+
 const configureGoogleSignIn = async (): Promise<void> => {
-  const extra = Constants.expoConfig?.extra;
-  
-  if (!extra?.GOOGLE_SIGN_IN_WEB_CLIENT_ID) {
-    throw new Error('Google Sign-In Web Client ID not configured');
-  }
-  
   if (__DEV__) {
-    console.log('Configuring Google Sign-In with Web Client ID...');
-    console.log('Web Client ID (first 20 chars):', extra.GOOGLE_SIGN_IN_WEB_CLIENT_ID.substring(0, 20) + '...');
+    console.log('Configuring Google Sign-In...');
   }
   
   try {
     await GoogleSignin.configure({
-      webClientId: extra.GOOGLE_SIGN_IN_WEB_CLIENT_ID,
+      webClientId: '766424113100-btd6u9903oufn124vhetm8gktngvg272.apps.googleusercontent.com',
     });
     
     if (__DEV__) {
@@ -185,9 +177,8 @@ export const debugGoogleOAuthConfig = () => {
     };
   }
   
-  const extra = Constants.expoConfig?.extra;
   return {
-    webClientId: extra?.GOOGLE_SIGN_IN_WEB_CLIENT_ID ? 'Configured' : 'Not configured',
-    hasConfig: !!extra?.GOOGLE_SIGN_IN_WEB_CLIENT_ID,
+    webClientId: 'Configured via google-services files',
+    hasConfig: true,
   };
 };

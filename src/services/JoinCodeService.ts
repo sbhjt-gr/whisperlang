@@ -1,4 +1,4 @@
-// Global map to store active codes
+
 const activeCodes = new Map<string, any>();
 
 export const joinCodeService = {

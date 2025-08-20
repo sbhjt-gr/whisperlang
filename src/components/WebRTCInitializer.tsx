@@ -10,7 +10,6 @@ const WebRTCInitializer: React.FC<Props> = ({ children }) => {
   const webRTCContext = useContext(WebRTCContext);
 
   useEffect(() => {
-    // Set the WebRTC context in the video call service
     videoCallService.setWebRTCContext(webRTCContext);
   }, [webRTCContext]);
 

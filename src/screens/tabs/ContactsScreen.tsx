@@ -182,12 +182,10 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps) {
 
   const handleVideoCall = async (contact: Contact) => {
     try {
-      // Set navigation reference for the video call service
       if (navigationHook) {
         videoCallService.setNavigationRef({ current: navigationHook });
       }
       
-      // Start video call
       await videoCallService.startVideoCall(contact);
     } catch (error) {
       console.error('Error starting video call:', error);
@@ -437,7 +435,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   
-  // Permission Styles
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -498,7 +495,6 @@ const styles = StyleSheet.create({
     color: '#667eea',
   },
   
-  // Denied Permission Styles
   deniedContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -526,7 +522,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   
-  // Search Styles
   searchContainer: {
     paddingHorizontal: 24,
     paddingTop: 16,
@@ -552,7 +547,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   
-  // Header Styles
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -566,7 +560,6 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   
-  // List Styles
   listContainer: {
     paddingHorizontal: 24,
     paddingBottom: 24,
@@ -625,7 +618,6 @@ const styles = StyleSheet.create({
     height: 12,
   },
   
-  // Loading and Empty States
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

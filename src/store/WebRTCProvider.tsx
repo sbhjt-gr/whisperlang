@@ -16,7 +16,6 @@ const getServerURL = () => {
     return 'https://whisperlang-render.onrender.com';
   }
   
-  // For development, use the appropriate localhost address based on platform
   const { Platform } = require('react-native');
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:3000'; // Android emulator localhost mapping
@@ -221,7 +220,6 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const createPeerConnection = (user: User, isInitiator: boolean): RTCPeerConnection => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
     
-    // Add local stream
     if (localStream) {
       localStream.getTracks().forEach(track => {
         pc.addTrack(track, localStream);
@@ -303,7 +301,6 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           setParticipants(response.participants || []);
           console.log('Joined meeting:', meetingId);
           
-          // Create peer connections for existing participants
           response.participants?.forEach((participant: User) => {
             if (localStream) {
               createPeerConnection(participant, true);

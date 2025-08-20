@@ -467,7 +467,6 @@ const styles = StyleSheet.create({
   toggleTextActive: {
     color: '#ffffff',
   },
-  // Actions Section
   actionsSection: {
     marginBottom: 24,
   },
@@ -669,7 +668,6 @@ const styles = StyleSheet.create({
   joinButtonIcon: {
     marginLeft: 8,
   },
-  // Recent Section (Enhanced)
   recentSection: {
     marginBottom: 24,
   },
@@ -712,7 +710,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f4ff',
     borderRadius: 8,
   },
-  // Language Banner
   languageBanner: {
     marginBottom: 24,
   },

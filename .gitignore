@@ -23,7 +23,7 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# Environment files
+# Environment files (no longer used)
 .env
 .env*.local
 
@@ -48,9 +48,9 @@ ios/build/
 *.aab
 *.ipa
 
-# Firebase config files (not used - we use .env variables only)
-# GoogleService-Info.plist
-# google-services.json
+# Firebase config files (contain sensitive data - add your own)
+android/app/google-services.json
+ios/whisperlang/GoogleService-Info.plist
 
 # Logs
 logs
