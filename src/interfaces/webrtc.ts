@@ -29,6 +29,7 @@ export interface WebRTCContext {
   remoteUser: User | null;
   activeCall: any;
   createMeeting: () => Promise<string>;
+  createMeetingWithSocket: (socket: any) => Promise<string>;
   joinMeeting: (meetingId: string) => Promise<boolean>;
   leaveMeeting: () => void;
   currentMeetingId: string | null;

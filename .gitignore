@@ -49,8 +49,8 @@ ios/build/
 *.ipa
 
 # Firebase config files (contain sensitive data - add your own)
-android/app/google-services.json
-ios/whisperlang/GoogleService-Info.plist
+google-services.json
+GoogleService-Info.plist
 
 # Logs
 logs

@@ -17,12 +17,33 @@ const getServerURL = () => {
   }
   
   const { Platform } = require('react-native');
+  
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000'; // Android emulator localhost mapping
+    return 'http://10.219.26.179:3000';
   } else if (Platform.OS === 'ios') {
-    return 'http://localhost:3000'; // iOS simulator can use localhost
+    return 'http://localhost:3000';
   } else {
-    return 'http://localhost:3000'; // Web and other platforms
+    return 'http://localhost:3000';
+  }
+};
+
+const getServerURLs = () => {
+  if (!__DEV__) {
+    return ['https://whisperlang-render.onrender.com'];
+  }
+  
+  const { Platform } = require('react-native');
+  
+  if (Platform.OS === 'android') {
+    return [
+      'http://10.219.26.179:3000',
+      'http://10.0.2.2:3000',
+      'http://localhost:3000'
+    ];
+  } else if (Platform.OS === 'ios') {
+    return ['http://localhost:3000'];
+  } else {
+    return ['http://localhost:3000'];
   }
 };
 
@@ -56,6 +77,7 @@ const initialValues: WebRTCContextType = {
   reset: () => {},
   activeCall: null,
   createMeeting: () => Promise.resolve(''),
+  createMeetingWithSocket: () => Promise.resolve(''),
   joinMeeting: () => Promise.resolve(false),
   leaveMeeting: () => {},
   currentMeetingId: null,
@@ -82,10 +104,59 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const [isMuted, setIsMuted] = useState(initialValues.isMuted);
   const [activeCall, setActiveCall] = useState<any>(null);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
-  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [peerConnections, setPeerConnections] = useState<Map<string, RTCPeerConnection>>(new Map());
   const [participants, setParticipants] = useState<User[]>([]);
 
-  const initialize = async (currentUsername?: string): Promise<void> => {
+  const connectWithFallback = async (urls: string[], username: string): Promise<any> => {
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      console.log(`Attempting to connect to: ${url} (attempt ${i + 1}/${urls.length})`);
+      
+      try {
+        const io = socketio.connect(url, {
+          reconnection: false,
+          autoConnect: true,
+          timeout: 5000,
+          transports: ['websocket', 'polling'],
+          forceNew: true,
+          upgrade: false,
+        });
+
+        return new Promise((resolve, reject) => {
+          const connectionTimeout = setTimeout(() => {
+            console.error(`Connection timeout for ${url}`);
+            io.disconnect();
+            reject(new Error(`Connection timeout: ${url}`));
+          }, 8000);
+
+          io.on('connect', () => {
+            clearTimeout(connectionTimeout);
+            console.log(`Socket connected successfully to: ${url}`);
+            console.log('Registering user:', username);
+            io.emit('register', username);
+            resolve(io);
+          });
+
+          io.on('connect_error', (error) => {
+            clearTimeout(connectionTimeout);
+            console.error(`Connection failed for ${url}:`, error.message);
+            io.disconnect();
+            reject(error);
+          });
+        });
+      } catch (error) {
+        console.error(`Failed to connect to ${url}:`, error);
+        if (i === urls.length - 1) {
+          throw error;
+        }
+        continue;
+      }
+    }
+    
+    throw new Error('All server URLs failed');
+  };
+
+  const initialize = async (currentUsername?: string): Promise<any> => {
     console.log('=== WEBRTC INITIALIZE START ===');
     
     const finalUsername = currentUsername || username || 'User';
@@ -114,110 +185,126 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       throw new Error(`Failed to access camera/microphone: ${error}`);
     }
 
-    return new Promise((resolve, reject) => {
-      console.log('Attempting to connect to:', SERVER_URL);
-      const io = socketio.connect(SERVER_URL, {
-        reconnection: true,
-        autoConnect: true,
-        timeout: 20000,
-        transports: ['websocket', 'polling'],
-        forceNew: true,
-      });
+    try {
+      const serverUrls = getServerURLs();
+      console.log('Trying server URLs:', serverUrls);
+      const io = await connectWithFallback(serverUrls, finalUsername);
+      
+      setSocket(io);
+      setPeerId(io.id || '');
+      
+      setupSocketListeners(io);
+      
+      console.log('WebRTC initialization completed successfully');
+      console.log('Socket state set successfully:', !!io);
+      console.log('Socket connected:', io.connected);
+      
+      return io;
+    } catch (error) {
+      console.error('Failed to initialize WebRTC:', error);
+      throw error;
+    }
+  };
 
-      const connectionTimeout = setTimeout(() => {
-        console.error('Socket connection timeout after 15 seconds');
-        io.disconnect();
-        reject(new Error('Socket connection timeout'));
-      }, 15000);
+  const setupSocketListeners = (io: any) => {
+    io.on('disconnect', (reason: string) => {
+      console.log('Socket disconnected:', reason);
+    });
 
-      io.on('connect', () => {
-        clearTimeout(connectionTimeout);
-        console.log('Socket connected successfully');
-        setSocket(io);
-        console.log('Registering user:', finalUsername);
-        io.emit('register', finalUsername);
-        setPeerId(io.id || '');
-        resolve();
-      });
+    io.on('users-change', (users: User[]) => {
+      setUsers(users);
+    });
 
-      io.on('connect_error', (error) => {
-        clearTimeout(connectionTimeout);
-        console.error('Socket connection failed:', error);
-        console.error('Attempted to connect to:', SERVER_URL);
-        console.error('Error details:', error.message, error.description, error.context);
-        io.disconnect();
-        reject(new Error(`Socket connection failed: ${error.message || error}`));
-      });
+    io.on('user-joined', (user: User) => {
+      console.log('User joined meeting:', user.username);
+      setParticipants(prev => [...prev, user]);
+      if (localStream) {
+        createPeerConnection(user, true);
+      }
+    });
 
-      io.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
-      });
-
-      io.on('users-change', (users: User[]) => {
-        setUsers(users);
-      });
-
-      io.on('user-joined', (user: User) => {
-        console.log('User joined meeting:', user.username);
-        setParticipants(prev => [...prev, user]);
-        if (localStream) {
-          createPeerConnection(user, true);
+    io.on('user-left', (user: User) => {
+      console.log('user left:', user.username);
+      setParticipants(prev => prev.filter(p => p.id !== user.id));
+      
+      setPeerConnections(prev => {
+        const pc = prev.get(user.peerId);
+        if (pc) {
+          pc.close();
+          prev.delete(user.peerId);
         }
+        return new Map(prev);
       });
+      
+      if (user.id === remoteUser?.id) {
+        setRemoteUser(null);
+        setRemoteStream(null);
+        setActiveCall(null);
+      }
+    });
 
-      io.on('user-left', (user: User) => {
-        console.log('User left meeting:', user.username);
-        setParticipants(prev => prev.filter(p => p.id !== user.id));
-        if (user.id === remoteUser?.id) {
-          setRemoteUser(null);
-          setRemoteStream(null);
+    io.on('meeting-ended', () => {
+      Alert.alert('Meeting ended');
+      leaveMeeting();
+    });
+
+    io.on('offer', async (data) => {
+      const { offer, fromPeerId, fromUsername, meetingId } = data;
+      console.log('offer received from:', fromUsername, fromPeerId);
+      
+      const pc = createPeerConnection({ 
+        peerId: fromPeerId, 
+        username: fromUsername,
+        id: fromPeerId
+      }, false);
+      
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      
+      io.emit('answer', {
+        answer: answer,
+        targetPeerId: fromPeerId,
+        meetingId: meetingId
+      });
+    });
+
+    io.on('answer', async (data) => {
+      const { answer, fromPeerId } = data;
+      console.log('answer received from:', fromPeerId);
+      
+      setPeerConnections(prevConnections => {
+        const pc = prevConnections.get(fromPeerId);
+        if (pc) {
+          pc.setRemoteDescription(new RTCSessionDescription(answer));
         }
+        return prevConnections;
       });
+    });
 
-      io.on('meeting-ended', () => {
-        Alert.alert('Meeting ended');
-        leaveMeeting();
-      });
-
-      io.on('offer', async (data) => {
-        const { offer, fromPeerId, fromUsername } = data;
-        console.log('Received offer from:', fromUsername);
-        
-        const pc = createPeerConnection({ 
-          peerId: fromPeerId, 
-          username: fromUsername,
-          id: fromPeerId
-        }, false);
-        
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        
-        io.emit('answer', {
-          answer: answer,
-          targetPeerId: fromPeerId,
-          meetingId: currentMeetingId
-        });
-      });
-
-      io.on('answer', async (data) => {
-        const { answer } = data;
-        console.log('Received answer');
-        if (peerConnection) {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    io.on('ice-candidate', async (data) => {
+      const { candidate, fromPeerId } = data;
+      console.log('ice candidate from:', fromPeerId);
+      
+      setPeerConnections(prevConnections => {
+        const pc = prevConnections.get(fromPeerId);
+        if (pc && candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(candidate));
         }
-      });
-
-      io.on('ice-candidate', async (data) => {
-        const { candidate } = data;
-        if (peerConnection && candidate) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        }
+        return prevConnections;
       });
     });
   };
 
   const createPeerConnection = (user: User, isInitiator: boolean): RTCPeerConnection => {
+    console.log('creating peer connection for:', user.username, user.peerId, 'isInitiator:', isInitiator);
+    
+    const existingPc = peerConnections.get(user.peerId);
+    if (existingPc) {
+      console.log('existing peer connection found');
+      return existingPc;
+    }
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
     
     if (localStream) {
@@ -237,11 +324,16 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     };
 
     pc.ontrack = (event) => {
+      console.log('track received from:', user.username);
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0] as MediaStream);
         setRemoteUser(user);
         setActiveCall(pc);
       }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('connection state:', pc.connectionState, 'for:', user.username);
     };
 
     if (isInitiator) {
@@ -252,23 +344,64 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           targetPeerId: user.peerId,
           meetingId: currentMeetingId
         });
+        console.log('offer sent to:', user.username, user.peerId);
       });
     }
 
-    setPeerConnection(pc);
+    setPeerConnections(prev => new Map(prev.set(user.peerId, pc)));
     return pc;
+  };
+
+  const createMeetingWithSocket = (socketToUse: any): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      console.log('=== CREATE MEETING WITH SOCKET DEBUG ===');
+      console.log('Socket provided:', !!socketToUse);
+      console.log('Socket connected:', socketToUse?.connected);
+      console.log('Socket ID:', socketToUse?.id);
+      
+      if (!socketToUse) {
+        console.error('No socket provided to createMeetingWithSocket');
+        reject('Socket not provided');
+        return;
+      }
+      
+      if (!socketToUse.connected) {
+        console.error('Provided socket is not connected');
+        reject('Socket not connected to server');
+        return;
+      }
+      
+      console.log('Emitting create-meeting event to server');
+      socketToUse.emit('create-meeting', (response: any) => {
+        console.log('Received response from server:', response);
+        if (response && response.success) {
+          setCurrentMeetingId(response.meetingId);
+          console.log('Meeting created successfully:', response.meetingId);
+          resolve(response.meetingId);
+        } else {
+          console.error('Failed to create meeting:', response?.error || 'Unknown error');
+          reject(response?.error || 'Failed to create meeting');
+        }
+      });
+    });
   };
 
   const createMeeting = (): Promise<string> => {
     return new Promise((resolve, reject) => {
+      console.log('=== CREATE MEETING DEBUG ===');
+      console.log('Socket exists:', !!socket);
+      console.log('Socket connected:', socket?.connected);
+      console.log('Socket ID:', socket?.id);
+      
       if (!socket) {
-        console.error('Socket not connected when creating meeting');
+        console.error('Socket not connected when creating meeting - socket is null/undefined');
         reject('Socket not connected');
         return;
       }
       
       if (!socket.connected) {
-        console.error('Socket not connected when creating meeting');
+        console.error('Socket not connected when creating meeting - socket.connected is false');
+        console.error('Socket readyState:', socket.readyState);
         reject('Socket not connected to server');
         return;
       }
@@ -296,12 +429,15 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       }
       
       socket.emit('join-meeting', meetingId, (response: any) => {
+        console.log('join meeting response:', response);
+        
         if (response.success) {
           setCurrentMeetingId(meetingId);
           setParticipants(response.participants || []);
-          console.log('Joined meeting:', meetingId);
+          console.log('joined meeting:', meetingId, 'participants:', response.participants?.length || 0);
           
           response.participants?.forEach((participant: User) => {
+            console.log('creating connection for participant:', participant.username, participant.peerId);
             if (localStream) {
               createPeerConnection(participant, true);
             }
@@ -309,7 +445,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           
           resolve(true);
         } else {
-          console.error('Failed to join meeting:', response.error);
+          console.error('join failed:', response.error);
           resolve(false);
         }
       });
@@ -321,10 +457,8 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       socket.emit('leave-meeting');
     }
     
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
-    }
+    peerConnections.forEach(pc => pc.close());
+    setPeerConnections(new Map());
     
     setCurrentMeetingId(null);
     setParticipants([]);
@@ -359,10 +493,8 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   };
 
   const closeCall = () => {
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
-    }
+    peerConnections.forEach(pc => pc.close());
+    setPeerConnections(new Map());
     setActiveCall(null);
     setRemoteUser(null);
     setRemoteStream(null);
@@ -371,10 +503,8 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
   const reset = async () => {
     socket?.disconnect();
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
-    }
+    peerConnections.forEach(pc => pc.close());
+    setPeerConnections(new Map());
     leaveMeeting();
     setLocalStream(null);
     setRemoteStream(null);
@@ -405,6 +535,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         remoteUser,
         activeCall,
         createMeeting,
+        createMeetingWithSocket,
         joinMeeting,
         leaveMeeting,
         currentMeetingId,

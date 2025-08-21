@@ -40,7 +40,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, currentMeetingId, leaveMeeting } = useContext(WebRTCContext);
+  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting } = useContext(WebRTCContext);
 
   useEffect(() => {
     initializeCall();
@@ -78,11 +78,12 @@ export default function InstantCallScreen({ navigation, route }: Props) {
       setUsername(username);
       
       try {
-        await initialize(username);
+        console.log('Initializing WebRTC...');
+        const socket = await initialize(username);
         console.log('WebRTC initialization completed for instant call');
         
         console.log('Creating meeting...');
-        const meetingId = await createMeeting();
+        const meetingId = await createMeetingWithSocket(socket);
         console.log('Meeting created with ID:', meetingId);
         if (meetingId) {
           setJoinCode(meetingId);
