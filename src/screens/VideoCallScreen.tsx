@@ -45,6 +45,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     remoteStream,
     activeCall,
     remoteUser,
+    participants,
     isMuted,
     closeCall,
     toggleMute,
@@ -60,10 +61,12 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   console.log('Remote stream:', remoteStream ? 'Available' : 'None');
   console.log('Active call:', activeCall);
   console.log('Remote user:', remoteUser);
+  console.log('Participants:', participants?.length || 0, participants?.map(p => p.username));
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const controlsAnim = useRef(new Animated.Value(1)).current;
   const [controlsVisible, setControlsVisible] = React.useState(true);
+  const initializationAttempted = useRef(false);
 
   useLayoutEffect(() => {
     console.log('=== VIDEO CALL SCREEN LAYOUT EFFECT ===');
@@ -95,24 +98,47 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   useEffect(() => {
     console.log('=== WEBRTC INITIALIZATION EFFECT ===');
     
+    // Prevent multiple initialization attempts
+    if (initializationAttempted.current) {
+      console.log('Initialization already attempted, skipping');
+      return;
+    }
+    initializationAttempted.current = true;
+    
     const initializeCall = async () => {
       const currentUser = auth.currentUser;
       const username = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
       
       try {
-        console.log('Starting WebRTC initialization...');
-        await initialize(username);
-        console.log('WebRTC initialization completed');
+        let socketConnection = null;
+        
+        // Only initialize if we don't have local stream yet (avoid reinitializing)
+        // Skip initialization for instant calls that already have a socket
+        if (!localStream && route.params.type !== 'instant') {
+          console.log('Starting WebRTC initialization...');
+          socketConnection = await initialize(username);
+          console.log('WebRTC initialization completed');
+        } else {
+          console.log('WebRTC already initialized or instant call, skipping initialization');
+        }
         
         if (route.params.type === 'join' && route.params.joinCode) {
           console.log('Joining meeting with code:', route.params.joinCode);
-          const joined = await joinMeeting(route.params.joinCode);
+          
+          // Add a small delay to ensure socket state is updated
+          if (socketConnection) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          const joined = await joinMeeting(route.params.joinCode, socketConnection);
           if (!joined) {
             Alert.alert('Error', 'Could not join meeting. Please check the meeting ID and try again.');
             navigation.goBack();
           }
         } else if (route.params.type === 'instant' && route.params.joinCode) {
           console.log('Entering instant call meeting:', route.params.joinCode);
+          // For instant calls, the meeting was already created, just set the current meeting ID
+          // setCurrentMeetingId(route.params.joinCode); // This might be managed by the context
         } else if (!route.params.type) {
           console.log('Creating new meeting...');
           const meetingId = await createMeeting();
@@ -129,7 +155,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     };
 
     initializeCall();
-  }, [route.params]);
+  }, []); // Run only once, not when route.params changes
 
   const showControls = () => {
     setControlsVisible(true);
@@ -239,8 +265,16 @@ export default function VideoCallScreen({ navigation, route }: Props) {
                 {currentMeetingId ? `Meeting: ${currentMeetingId}` : 'Setting up meeting...'}
               </Text>
               <Text style={styles.callingSubtext}>
-                {remoteUser ? 'Connecting...' : 'Waiting for participants...'}
+                {participants?.length > 0 
+                  ? `${participants.length} participant${participants.length === 1 ? '' : 's'} connected`
+                  : 'Waiting for participants...'
+                }
               </Text>
+              {participants?.length > 0 && (
+                <Text style={styles.participantsList}>
+                  {participants.map(p => p.username).join(', ')}
+                </Text>
+              )}
             </View>
           </GradientCard>
         </Animated.View>
@@ -386,6 +420,13 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     marginTop: 8,
     textAlign: 'center',
+  },
+  participantsList: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   controlsWrapper: {
     position: 'absolute',

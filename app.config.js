@@ -20,7 +20,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.gorai.whisperlang",
-      googleServicesFile: "./GoogleService-Info.plist",
+      googleServicesFile: "./ios/WhisperLang/GoogleService-Info.plist",
       infoPlist: {
         NSContactsUsageDescription: "WhisperLang needs access to your contacts to help you connect with friends and family for video calls.",
         NSCameraUsageDescription: "WhisperLang needs access to your camera for video calls.",
@@ -33,7 +33,7 @@ export default {
         backgroundColor: "#3754AB"
       },
       package: "com.gorai.whisperlang",
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: "./android/app/google-services.json",
       permissions: [
         "android.permission.READ_CONTACTS",
         "android.permission.CAMERA",

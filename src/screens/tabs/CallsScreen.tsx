@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Platform, Animated, TouchableOpacity, StatusBar, TextInput, Alert } from 'react-native';
 import { Text, Image } from '@rneui/themed';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -14,11 +14,11 @@ interface Props {
 
 export default function CallsScreen({ navigation }: Props) {
   const [id, setID] = useState<string>('');
-  const [focusedField, setFocusedField] = useState<string>('');
   const [activeFeature, setActiveFeature] = useState<string>('instant');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const textInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -57,13 +57,13 @@ export default function CallsScreen({ navigation }: Props) {
       const numericId = parseInt(rawInput);
       
       if (!isNaN(numericId)) {
-        navigation.navigate('VideoCallScreen', {id: numericId, type: 1});
+        navigation.navigate('VideoCallScreen', {id: numericId.toString(), type: 'join'});
       } else {
         const cleanCode = rawInput.toUpperCase();
         
         if (/^[A-Z0-9]{4,8}$/.test(cleanCode)) {
           navigation.navigate('VideoCallScreen', {
-            id: Date.now(),
+            id: Date.now().toString(),
             type: 'join',
             joinCode: cleanCode
           });
@@ -86,9 +86,10 @@ export default function CallsScreen({ navigation }: Props) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
+        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="none"
-        automaticallyAdjustKeyboardInsets={false}
+        automaticallyAdjustKeyboardInsets={true}
+        nestedScrollEnabled={false}
       >
         {/* Hero Section with Live Translation Badge */}
         <Animated.View 
@@ -226,64 +227,41 @@ export default function CallsScreen({ navigation }: Props) {
         </Animated.View>
 
         {/* Join Meeting Section */}
-        <Animated.View 
-          style={[
-            styles.joinSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
-        >
+        <View style={styles.joinSection}>
           <View style={styles.joinCard}>
             <View style={styles.joinHeader}>
               <Ionicons name="enter-outline" size={20} color="#667eea" />
               <Text style={styles.sectionTitle}>Join a Meeting</Text>
             </View>
             
-            <View style={[styles.inputWrapper, focusedField === 'meetingId' && styles.inputWrapperFocused]}>
+            <View style={styles.inputContainer}>
               <TextInput
-                style={styles.textInput}
-                placeholder="Enter meeting ID or join code (e.g. ABC123)"
+                ref={textInputRef}
+                style={styles.meetingInput}
+                placeholder="Enter meeting code (e.g. ABC123)"
                 placeholderTextColor="#9ca3af"
                 value={id}
                 onChangeText={setID}
-                keyboardType="default"
-                onFocus={() => setFocusedField('meetingId')}
-                onBlur={() => setFocusedField('')}
-                onSubmitEditing={meet}
                 autoCapitalize="characters"
-                autoComplete="off"
                 autoCorrect={false}
-                textContentType="none"
-                importantForAutofill="no"
-                blurOnSubmit={false}
-                returnKeyType="go"
+                autoComplete="off"
+                keyboardType="default"
+                returnKeyType="done"
+                onSubmitEditing={meet}
               />
-              {id.trim() && (
-                <TouchableOpacity onPress={() => setID('')}>
-                  <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                </TouchableOpacity>
-              )}
             </View>
             
             <TouchableOpacity 
-              style={[styles.joinButton, !id.trim() && styles.joinButtonDisabled]}
+              style={[styles.joinMeetingButton, !id.trim() && styles.joinMeetingButtonDisabled]}
               onPress={meet}
               disabled={!id.trim()}
             >
-              <Text style={[styles.joinButtonText, !id.trim() && styles.joinButtonTextDisabled]}>
+              <Text style={[styles.joinMeetingButtonText, !id.trim() && styles.joinMeetingButtonTextDisabled]}>
                 Join Meeting
               </Text>
-              <Ionicons 
-                name="arrow-forward" 
-                size={16} 
-                color={id.trim() ? '#667eea' : '#9ca3af'} 
-                style={styles.joinButtonIcon}
-              />
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Enhanced Recent Activity */}
         <Animated.View 
@@ -612,6 +590,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1f2937',
     marginLeft: 8,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  meetingInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#1f2937',
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+  },
+  joinMeetingButton: {
+    backgroundColor: '#667eea',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinMeetingButtonDisabled: {
+    backgroundColor: '#e5e7eb',
+  },
+  joinMeetingButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  joinMeetingButtonTextDisabled: {
+    color: '#9ca3af',
   },
   inputWrapper: {
     flexDirection: 'row',
