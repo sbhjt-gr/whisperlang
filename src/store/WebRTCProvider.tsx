@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {Alert} from 'react-native';
 import {
   mediaDevices,
@@ -78,6 +78,10 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const [peerConnections, setPeerConnections] = useState<Map<string, RTCPeerConnection>>(new Map());
   const [participants, setParticipants] = useState<User[]>([]);
+
+  // Use refs for immediate access to current values
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peerIdRef = useRef<string>('');
 
     const connectWithFallback = async (urls: string[], username: string): Promise<any> => {
     for (let i = 0; i < urls.length; i++) {
@@ -169,11 +173,15 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       },
     };
 
+    let newStream: MediaStream;
+    
     try {
       console.log('Requesting user media with constraints:', constraints);
-      const newStream = await mediaDevices.getUserMedia(constraints);
+      newStream = await mediaDevices.getUserMedia(constraints);
       console.log('Got local stream:', newStream.id);
       setLocalStream(newStream as MediaStream);
+      localStreamRef.current = newStream as MediaStream;
+      console.log('Local stream state will be updated to:', newStream.id);
     } catch (error) {
       console.error('Failed to get user media:', error);
       throw new Error(`Failed to access camera/microphone: ${error}`);
@@ -186,6 +194,13 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       
       setSocket(io);
       setPeerId(io.id || '');
+      peerIdRef.current = io.id || '';
+      console.log('Socket and peer ID state will be updated to:', io.id);
+      
+      // Store these on the socket for immediate access
+      io.localStream = newStream;
+      io.currentPeerId = io.id;
+      console.log('Stored on socket - localStream:', !!io.localStream, 'peerId:', io.currentPeerId);
       
       setupSocketListeners(io);
       
@@ -227,17 +242,27 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       });
       
       // Create peer connection for the new user (we are the initiator since we were here first)
-      if (localStream && user.peerId && user.peerId !== peerId) {
+      if (user.peerId && user.peerId !== peerId && user.peerId !== (socket?.currentPeerId || socket?.id)) {
+        console.log('User joined - checking peer connection conditions:', {
+          hasLocalStream: !!(localStreamRef.current || localStream),
+          userPeerId: user.peerId,
+          currentPeerId: peerIdRef.current || peerId,
+          socketLocalStream: !!socket?.localStream,
+          stateLocalStream: !!localStream
+        });
+      }
+      
+      if ((localStreamRef.current || localStream) && user.peerId && user.peerId !== (peerIdRef.current || peerId)) {
         console.log('Creating peer connection for new user (we initiate):', user.username);
         setTimeout(() => {
           createPeerConnection(user, true);
         }, 500);
       } else {
         console.log('Not creating peer connection:', {
-          hasLocalStream: !!localStream,
+          hasLocalStream: !!(localStreamRef.current || localStream),
           userPeerId: user.peerId,
-          currentPeerId: peerId,
-          sameId: user.peerId === peerId
+          currentPeerId: peerIdRef.current || peerId,
+          sameId: user.peerId === (peerIdRef.current || peerId)
         });
       }
     });
@@ -380,14 +405,21 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     
-    // Add local stream tracks
-    if (localStream) {
-      console.log('Adding local stream to peer connection');
-      // Use addStream for React Native WebRTC compatibility
-      (pc as any).addStream(localStream);
-      console.log('Local stream added successfully');
+    // Add local stream tracks - use modern addTrack API instead of deprecated addStream
+    const streamToAdd = localStreamRef.current || localStream;
+    if (streamToAdd) {
+      console.log('Adding local stream tracks to peer connection:', streamToAdd.id);
+      
+      // Add each track individually (modern WebRTC API)
+      streamToAdd.getTracks().forEach(track => {
+        console.log('Adding track:', track.kind, track.id);
+        pc.addTrack(track, streamToAdd);
+      });
+      
+      console.log('Local stream tracks added successfully');
     } else {
       console.warn('No local stream available when creating peer connection');
+      console.warn('Ref stream:', !!localStreamRef.current, 'State stream:', !!localStream);
     }
 
     pc.addEventListener('icecandidate', (event: any) => {
@@ -401,28 +433,32 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       }
     });
 
-    pc.addEventListener('addstream', (event: any) => {
-      console.log('=== RECEIVED STREAM ===');
-      console.log('Stream received from:', user.username);
-      console.log('Stream ID:', event.stream?.id);
-      console.log('Stream tracks:', event.stream?.getTracks()?.length);
+    // Handle incoming remote tracks (modern API)
+    pc.addEventListener('track', (event: any) => {
+      console.log('=== RECEIVED TRACK ===');
+      console.log('Track kind:', event.track?.kind);
+      console.log('Track ID:', event.track?.id);
+      console.log('Streams:', event.streams?.length || 0);
       
-      if (event.stream) {
-        console.log('Setting remote stream from:', user.username);
-        setRemoteStream(event.stream as MediaStream);
+      if (event.streams && event.streams[0]) {
+        const stream = event.streams[0] as MediaStream;
+        console.log('=== RECEIVED STREAM ===');
+        console.log('Remote stream ID:', stream.id);
+        console.log('Remote stream tracks:', stream.getTracks().length);
+        
+        setRemoteStream(stream);
         setRemoteUser(user);
-        setActiveCall(pc);
         
         // Also update participants with active connection status
         setParticipants(prev => 
           prev.map(p => 
             p.peerId === user.peerId 
-              ? { ...p, connected: true } 
+              ? { ...p, hasActiveConnection: true }
               : p
           )
         );
       } else {
-        console.error('No stream in onaddstream event');
+        console.error('No stream in track event');
       }
     });
 
@@ -563,8 +599,18 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           console.log('Successfully joined meeting:', meetingId);
           console.log('Number of existing participants:', response.participants?.length || 0);
           
-          // Wait a bit for local stream to be ready, then create peer connections
+          // Wait longer for state updates, then create peer connections
           setTimeout(() => {
+            console.log('=== PEER CONNECTION CREATION TIMEOUT ===');
+            console.log('Current state:', {
+              localStreamState: !!localStream,
+              localStreamRef: !!localStreamRef.current,
+              localStreamSocket: !!activeSocket.localStream,
+              peerIdState: peerId,
+              peerIdRef: peerIdRef.current,
+              peerIdSocket: activeSocket.currentPeerId || activeSocket.id
+            });
+            
             response.participants?.forEach((participant: User) => {
               console.log('Creating peer connection for existing participant:', {
                 username: participant.username,
@@ -572,19 +618,25 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
                 id: participant.id
               });
               
-              if (localStream && participant.peerId && participant.peerId !== peerId) {
-                console.log('Initiating connection to participant:', participant.username);
+              // Use ref values for immediate access
+              const hasStream = !!(localStreamRef.current || localStream);
+              const currentId = peerIdRef.current || peerId;
+              
+              console.log('Peer connection check:', {
+                hasLocalStream: hasStream,
+                participantPeerId: participant.peerId,
+                currentPeerId: currentId,
+                sameId: participant.peerId === currentId
+              });
+              
+              if (hasStream && participant.peerId && participant.peerId !== currentId) {
+                console.log('✅ Creating peer connection to participant:', participant.username);
                 createPeerConnection(participant, true);
               } else {
-                console.log('Skipping peer connection:', {
-                  hasLocalStream: !!localStream,
-                  participantPeerId: participant.peerId,
-                  currentPeerId: peerId,
-                  sameId: participant.peerId === peerId
-                });
+                console.log('❌ Skipping peer connection - conditions not met');
               }
             });
-          }, 1000);
+          }, 2000); // Increased timeout to 2 seconds
           
           resolve(true);
         } else {
