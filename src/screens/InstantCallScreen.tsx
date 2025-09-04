@@ -44,7 +44,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting, participants, remoteStreams, refreshParticipantVideo } = useContext(WebRTCContext);
+  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting, participants, remoteStreams, refreshParticipantVideo, peerId } = useContext(WebRTCContext);
 
   useEffect(() => {
     initializeCall();
@@ -220,8 +220,26 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   }
 
   const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
-  // Use only real participants from WebRTC context, not mock participants
-  const allParticipants = [...participants];
+  // Check if local participant already exists in participants list
+  const localParticipantExists = participants.some(p => p.isLocal || (p.peerId === actualPeerId && p.id === actualPeerId));
+  
+  // Use actual peerId if available, otherwise use 'local'
+  const actualPeerId = peerId || 'local';
+  
+  // Only add local participant if it doesn't already exist
+  const localParticipant = {
+    username: currentUser,
+    name: currentUser,
+    peerId: actualPeerId,
+    id: actualPeerId,
+    isLocal: true
+  };
+
+  // Build participants list without duplication
+  const allParticipants = localParticipantExists 
+    ? [...participants] 
+    : [localParticipant, ...participants];
+  
   const shouldShowMultiView = allParticipants.length > 0;
 
   console.log('=== INSTANT CALL SCREEN RENDER DEBUG ===');

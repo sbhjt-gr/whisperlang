@@ -222,27 +222,16 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   };
 
   const getAllParticipants = () => {
-    // Start with remote participants from WebRTC context
+    // Start with all participants from screen component (should already include local if needed)
     let allParticipants = [...participants];
-
-    // Add local user only if not already present
-    const localUserExists = allParticipants.some(p => p.isLocal || p.id === 'local' || p.peerId === 'local');
-    if (!localUserExists) {
-      allParticipants.unshift({
-        username: currentUser,
-        name: currentUser,
-        peerId: 'local',
-        id: 'local',
-        isLocal: true
-      });
-    }
 
     console.log('=== PARTICIPANT GRID PARTICIPANTS ===');
     console.log('Current user:', currentUser);
+    console.log('Local stream available:', !!localStream);
     console.log('Remote participants:', participants.length);
     console.log('All participants:', allParticipants.length);
     console.log('Participants list:', allParticipants.map(p => ({
-      name: p.name,
+      name: p.name || p.username,
       isLocal: p.isLocal,
       peerId: p.peerId,
       id: p.id

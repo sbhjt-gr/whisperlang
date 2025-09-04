@@ -58,6 +58,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     joinMeeting,
     currentMeetingId,
     refreshParticipantVideo,
+    peerId,
   } = useContext(WebRTCContext);
 
   console.log('=== WEBRTC CONTEXT STATE ===');
@@ -147,6 +148,12 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           // setCurrentMeetingId(route.params.joinCode); // This might be managed by the context
         } else if (!route.params.type) {
           console.log('Creating new meeting...');
+          
+          // Add a small delay to ensure local stream state is updated
+          if (socketConnection) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+          
           const meetingId = await createMeeting();
           Alert.alert(
             'Meeting Created',
@@ -240,10 +247,29 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   };
 
   const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
-  // Only show mock participants if we're not in a real meeting
-  const allParticipants = currentMeetingId && participants.length > 0 
-    ? [...participants] 
-    : [...participants, ...mockParticipants];
+  // Check if local participant already exists in participants list
+  const localParticipantExists = participants.some(p => p.isLocal || (p.peerId === actualPeerId && p.id === actualPeerId));
+  
+  // Use actual peerId if available, otherwise use 'local'
+  const actualPeerId = peerId || 'local';
+  
+  // Only add local participant if it doesn't already exist
+  const localParticipant = {
+    username: currentUser,
+    name: currentUser,
+    peerId: actualPeerId,
+    id: actualPeerId,
+    isLocal: true
+  };
+
+  // Build participants list without duplication
+  let allParticipants;
+  if (currentMeetingId && participants.length > 0) {
+    allParticipants = localParticipantExists ? [...participants] : [localParticipant, ...participants];
+  } else {
+    allParticipants = localParticipantExists ? [...participants, ...mockParticipants] : [localParticipant, ...participants, ...mockParticipants];
+  }
+  
   const shouldShowMultiView = isMultiParticipantMode || allParticipants.length > 1;
 
   console.log('=== VIDEO CALL SCREEN RENDER DEBUG ===');

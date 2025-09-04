@@ -58,6 +58,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     joinMeeting,
     currentMeetingId,
     refreshParticipantVideo,
+    peerId,
   } = useContext(WebRTCContext);
 
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -228,7 +229,26 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   };
 
   const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
-  const allParticipants = [...participants, ...mockParticipants];
+  // Check if local participant already exists in participants list
+  const localParticipantExists = participants.some(p => p.isLocal || (p.peerId === actualPeerId && p.id === actualPeerId));
+  
+  // Use actual peerId if available, otherwise use 'local'
+  const actualPeerId = peerId || 'local';
+  
+  // Only add local participant if it doesn't already exist
+  const localParticipant = {
+    username: currentUser,
+    name: currentUser,
+    peerId: actualPeerId,
+    id: actualPeerId,
+    isLocal: true
+  };
+
+  // Build participants list without duplication
+  const allParticipants = localParticipantExists 
+    ? [...participants, ...mockParticipants] 
+    : [localParticipant, ...participants, ...mockParticipants];
+  
   const shouldShowMultiView = isMultiParticipantMode || allParticipants.length > 0;
 
   if (shouldShowMultiView) {

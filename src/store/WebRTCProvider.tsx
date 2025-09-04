@@ -700,7 +700,23 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
               ...participant,
               isLocal: participant.id === socket.id
             }));
+            
+            // Ensure local participant is always included
+            const localParticipantExists = participantsWithLocalFlag.some((p: User) => p.isLocal);
+            if (!localParticipantExists) {
+              const localParticipant = {
+                id: socket.id,
+                username: username,
+                peerId: socket.id,
+                name: username,
+                isLocal: true
+              };
+              participantsWithLocalFlag.unshift(localParticipant);
+              console.log('Added local participant to participants list:', localParticipant);
+            }
+            
             setParticipants(participantsWithLocalFlag);
+            console.log('Final participants list:', participantsWithLocalFlag);
           } else {
             // Fallback: Add the initiator to the participants list
             const initiatorUser = {
@@ -711,6 +727,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
               isLocal: true
             };
             setParticipants([initiatorUser]);
+            console.log('Set fallback participants list:', [initiatorUser]);
           }
 
           resolve(response.meetingId);
@@ -757,6 +774,20 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
             ...participant,
             isLocal: participant.id === activeSocket.id
           }));
+
+          // Ensure local participant is always included
+          const localParticipantExists = participantsWithLocalFlag.some((p: User) => p.isLocal);
+          if (!localParticipantExists) {
+            const localParticipant = {
+              id: activeSocket.id,
+              username: username,
+              peerId: activeSocket.id,
+              name: username,
+              isLocal: true
+            };
+            participantsWithLocalFlag.unshift(localParticipant);
+            console.log('Added local participant to participants list on join:', localParticipant);
+          }
 
           setParticipants(participantsWithLocalFlag);
 
