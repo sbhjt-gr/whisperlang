@@ -354,9 +354,7 @@ export DEBUG=expo:*
 5. **Configure environment variables** (see Installation section)
 
 ### WebRTC Signaling Server
-WhisperLang requires a signaling server for WebRTC connections. The app connects to:
-- **Development**: `http://localhost:3000`
-- **Production**: `https://whisperlang-render.onrender.com`
+WhisperLang requires a signaling server for WebRTC connections. The app connects to the server configured in the .env file.
 
 The signaling server handles:
 - User registration and discovery

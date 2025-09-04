@@ -58,34 +58,28 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     currentMeetingId,
   } = useContext(WebRTCContext);
 
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [isMultiParticipantMode, setIsMultiParticipantMode] = useState(false);
+  const [mockParticipants, setMockParticipants] = useState<User[]>([]);
+  const controlsAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const initializationAttempted = useRef(false);
+
   console.log('=== WEBRTC CONTEXT STATE ===');
   console.log('Local stream:', localStream ? 'Available' : 'None');
   console.log('Remote stream:', remoteStream ? 'Available' : 'None');
   console.log('Active call:', activeCall);
   console.log('Remote user:', remoteUser);
   console.log('Participants:', participants?.length || 0, participants?.map(p => p.username));
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const controlsAnim = useRef(new Animated.Value(1)).current;
-  const [controlsVisible, setControlsVisible] = React.useState(true);
-  const [isMultiParticipantMode, setIsMultiParticipantMode] = useState(false);
-  const [mockParticipants, setMockParticipants] = useState<User[]>([]);
-  const initializationAttempted = useRef(false);
+  console.log('Current meeting ID:', currentMeetingId);
 
   useLayoutEffect(() => {
-    console.log('=== VIDEO CALL SCREEN LAYOUT EFFECT ===');
-    if(!route.params.type) {
-        console.log('No type - creating new meeting');
-    } else if(route.params.type === 'join' && route.params.joinCode) {
-        console.log('Join type detected - will join with code:', route.params.joinCode);
-    } else {
-        console.log('Other type detected:', route.params.type);
-    }
-  });
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   useEffect(() => {
-    console.log('=== VIDEO CALL SCREEN MAIN EFFECT ===');
-    
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,
@@ -102,7 +96,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   useEffect(() => {
     console.log('=== WEBRTC INITIALIZATION EFFECT ===');
     
-    // Prevent multiple initialization attempts
     if (initializationAttempted.current) {
       console.log('Initialization already attempted, skipping');
       return;
@@ -116,8 +109,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       try {
         let socketConnection = null;
         
-        // Only initialize if we don't have local stream yet (avoid reinitializing)
-        // Skip initialization for instant calls that already have a socket
         if (!localStream && route.params.type !== 'instant') {
           console.log('Starting WebRTC initialization...');
           socketConnection = await initialize(username);
@@ -129,7 +120,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         if (route.params.type === 'join' && route.params.joinCode) {
           console.log('Joining meeting with code:', route.params.joinCode);
           
-          // Add a small delay to ensure socket state is updated
           if (socketConnection) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
@@ -141,8 +131,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           }
         } else if (route.params.type === 'instant' && route.params.joinCode) {
           console.log('Entering instant call meeting:', route.params.joinCode);
-          // For instant calls, the meeting was already created, just set the current meeting ID
-          // setCurrentMeetingId(route.params.joinCode); // This might be managed by the context
         } else if (!route.params.type) {
           console.log('Creating new meeting...');
           const meetingId = await createMeeting();
@@ -163,7 +151,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     };
 
     initializeCall();
-  }, []); // Run only once, not when route.params changes
+  }, []);
 
   const initializeMockParticipants = () => {
     const mockUsers: User[] = [
@@ -239,28 +227,9 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
   const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
   const allParticipants = [...participants, ...mockParticipants];
-  const shouldShowMultiView = isMultiParticipantMode || allParticipants.length > 1;
-
-  console.log('=== VIDEO CALL SCREEN RENDER DEBUG ===');
-  console.log('Should show multi view:', shouldShowMultiView);
-  console.log('Local stream for grid:', !!localStream);
-  console.log('Current user for grid:', currentUser);
-  console.log('All participants for grid:', allParticipants.length);
+  const shouldShowMultiView = isMultiParticipantMode || allParticipants.length > 0;
 
   if (shouldShowMultiView) {
-    // Don't show multi-view until local stream is available
-    if (!localStream) {
-      return (
-        <View style={styles.container}>
-          <StatusBar backgroundColor='black' style='light' />
-          <View style={styles.spinnerWrapper}>
-            <ActivityIndicator color="#8b5cf6" size="large" />
-            <Text style={styles.callingText}>Setting up camera...</Text>
-          </View>
-        </View>
-      );
-    }
-
     return (
       <TouchableOpacity
         style={styles.container}
@@ -288,8 +257,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Ionicons name="person" size={20} color="#ffffff" />
-              <Text style={styles.topControlText}>Single</Text>
+              <Ionicons name="grid" size={20} color="#ffffff" />
+              <Text style={styles.topControlText}>Single View</Text>
             </LinearGradient>
           </TouchableOpacity>
           
@@ -386,7 +355,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   }
 
   // Single participant view (original layout)
-    
   return (
     <TouchableOpacity
       style={styles.container}
@@ -455,21 +423,18 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             },
           ]}
         >
-          <GradientCard colors={['rgba(0,212,170,0.3)', 'rgba(0,102,204,0.3)']} glassmorphism>
+          <GradientCard>
             <View style={styles.callingContent}>
-              <ActivityIndicator color="#8b5cf6" size="large" />
+              <ActivityIndicator size="large" color="#8b5cf6" />
               <Text style={styles.callingText}>
-                {currentMeetingId ? `Meeting: ${currentMeetingId}` : 'Setting up meeting...'}
+                {activeCall ? 'Connecting...' : 'Waiting for participants'}
               </Text>
               <Text style={styles.callingSubtext}>
-                {participants?.length > 0 
-                  ? `${participants.length} participant${participants.length === 1 ? '' : 's'} connected`
-                  : 'Waiting for participants...'
-                }
+                {currentMeetingId ? `Meeting ID: ${currentMeetingId}` : 'Initializing call...'}
               </Text>
-              {participants?.length > 0 && (
+              {participants && participants.length > 0 && (
                 <Text style={styles.participantsList}>
-                  {participants.map(p => p.username).join(', ')}
+                  Participants: {participants.map(p => p.name || p.username).join(', ')}
                 </Text>
               )}
             </View>
@@ -489,7 +454,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             end={{ x: 1, y: 1 }}
           >
             <Ionicons name="grid" size={20} color="#ffffff" />
-            <Text style={styles.topControlText}>Multi</Text>
+            <Text style={styles.topControlText}>Multi View</Text>
           </LinearGradient>
         </TouchableOpacity>
         

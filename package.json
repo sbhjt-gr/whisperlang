@@ -1,6 +1,6 @@
 {
   "name": "whisperlang",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "private": true,
   "main": "expo/AppEntry.ts",
   "scripts": {

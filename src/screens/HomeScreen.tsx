@@ -233,31 +233,37 @@ export default function HomeScreen({ navigation, route }: Props) {
                 </LinearGradient>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.actionCard}>
+              <TouchableOpacity 
+                style={styles.actionCard}
+                onPress={() => navigation.navigate('EnvironmentConfig')}
+              >
                 <LinearGradient
                   colors={['#a8edea', '#fed6e3']}
                   style={styles.actionGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name="time-outline" size={24} color="#ffffff" />
-                  <Text style={styles.actionTitle}>History</Text>
-                  <Text style={styles.actionSubtitle}>Call logs</Text>
+                  <Ionicons name="server-outline" size={24} color="#ffffff" />
+                  <Text style={styles.actionTitle}>Server Config</Text>
+                  <Text style={styles.actionSubtitle}>Environment setup</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
             
             <View style={styles.actionsGrid}>
-              <TouchableOpacity style={styles.actionCard}>
+              <TouchableOpacity 
+                style={styles.actionCard}
+                onPress={() => navigation.navigate('MultiParticipantDemo')}
+              >
                 <LinearGradient
                   colors={['#667eea', '#764ba2']}
                   style={styles.actionGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name="people-outline" size={24} color="#ffffff" />
-                  <Text style={styles.actionTitle}>Contacts</Text>
-                  <Text style={styles.actionSubtitle}>Manage contacts</Text>
+                  <Ionicons name="grid-outline" size={24} color="#ffffff" />
+                  <Text style={styles.actionTitle}>Multi Demo</Text>
+                  <Text style={styles.actionSubtitle}>Group call preview</Text>
                 </LinearGradient>
               </TouchableOpacity>
               

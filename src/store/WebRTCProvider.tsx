@@ -9,24 +9,44 @@ import {
 } from 'react-native-webrtc';
 import socketio from 'socket.io-client';
 import {WebRTCContext as WebRTCContextType, User} from '../interfaces/webrtc';
+import {
+  SIGNALING_SERVER_URL,
+  FALLBACK_SERVER_URLS,
+  WEBRTC_TIMEOUT,
+  WEBRTC_RECONNECTION_ATTEMPTS,
+  WEBRTC_RECONNECTION_DELAY,
+  STUN_SERVERS,
+  NODE_ENV
+} from '@env';
 
 const getServerURL = () => {
-  return 'https://whisperlang-render.onrender.com';
+  return SIGNALING_SERVER_URL;
 };
 
 const getServerURLs = () => {
-  return ['https://whisperlang-render.onrender.com'];
+  if (FALLBACK_SERVER_URLS) {
+    return FALLBACK_SERVER_URLS.split(',').map(url => url.trim());
+  }
+  return [];
+};
+
+const getStunServers = () => {
+  if (STUN_SERVERS) {
+    return STUN_SERVERS.split(',').map(url => url.trim());
+  }
+  return [
+    'stun:stun1.l.google.com:19302',
+    'stun:stun2.l.google.com:19302',
+  ];
 };
 
 const SERVER_URL = getServerURL();
+const SERVER_URLS = getServerURLs();
 
 const ICE_SERVERS = {
   iceServers: [
     {
-      urls: [
-        'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-      ],
+      urls: getStunServers(),
     },
   ],
 };
@@ -84,17 +104,24 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const peerIdRef = useRef<string>('');
 
     const connectWithFallback = async (urls: string[], username: string): Promise<any> => {
+    console.log(`Starting WebRTC connection in ${NODE_ENV || 'production'} mode`);
+    console.log('Available server URLs:', urls);
+    
     for (let i = 0; i < urls.length; i++) {
       const url = urls[i];
       console.log(`Attempting to connect to: ${url} (attempt ${i + 1}/${urls.length})`);
       
       try {
+        const timeout = parseInt(WEBRTC_TIMEOUT) || 20000;
+        const reconnectionAttempts = parseInt(WEBRTC_RECONNECTION_ATTEMPTS) || 3;
+        const reconnectionDelay = parseInt(WEBRTC_RECONNECTION_DELAY) || 1000;
+        
         const io = socketio(url, {
           reconnection: true,
-          reconnectionAttempts: 3,
-          reconnectionDelay: 1000,
+          reconnectionAttempts: reconnectionAttempts,
+          reconnectionDelay: reconnectionDelay,
           autoConnect: true,
-          timeout: 20000,
+          timeout: timeout,
           transports: ['polling', 'websocket'],
           forceNew: true,
           upgrade: true,
@@ -102,14 +129,14 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
         return new Promise((resolve, reject) => {
           const connectionTimeout = setTimeout(() => {
-            console.error(`Connection timeout for ${url}`);
+            console.error(`Connection timeout for ${url} after ${timeout}ms`);
             io.disconnect();
             reject(new Error(`Connection timeout: ${url}`));
-          }, 25000);
+          }, timeout + 5000);
 
           io.on('connect', () => {
             clearTimeout(connectionTimeout);
-            console.log(`Socket connected successfully to: ${url}`);
+            console.log(`✅ Socket connected successfully to: ${url}`);
             console.log('Socket ID:', io.id);
             console.log('Transport:', io.io.engine.transport.name);
             console.log('Registering user:', username);
@@ -128,7 +155,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
           io.on('connect_error', (error: any) => {
             clearTimeout(connectionTimeout);
-            console.error(`Connection failed for ${url}:`, error.message);
+            console.error(`❌ Connection failed for ${url}:`, error.message);
             console.error('Error type:', error.type);
             console.error('Error description:', error.description);
             io.disconnect();
@@ -136,11 +163,11 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           });
 
           io.on('disconnect', (reason: any) => {
-            console.log(`Disconnected from ${url}:`, reason);
+            console.log(`📡 Disconnected from ${url}:`, reason);
           });
 
           io.on('reconnect', () => {
-            console.log(`Reconnected to ${url}`);
+            console.log(`🔄 Reconnected to ${url}`);
           });
         });
       } catch (error) {
@@ -148,6 +175,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         if (i === urls.length - 1) {
           throw error;
         }
+        // Wait before trying next server
         await new Promise(resolve => setTimeout(resolve, 2000));
         continue;
       }
@@ -166,10 +194,9 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     const constraints = {
       audio: true,
       video: {
-        width: { min: 1280 },
-        height: { min: 720 },
-        frameRate: { min: 30 },
         facingMode: 'user',
+        width: { ideal: 640 },
+        height: { ideal: 480 },
       },
     };
 
@@ -234,35 +261,57 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       });
       console.log('Current meeting ID:', currentMeetingId);
       console.log('Local stream exists:', !!localStream);
-      
+
+      // Add user to participants list immediately
       setParticipants(prev => {
-        const updated = [...prev, user];
-        console.log('Updated participants list:', updated.map(p => p.username));
-        return updated;
+        const exists = prev.find(p => p.peerId === user.peerId);
+        if (!exists) {
+          console.log('Adding user to participants list:', user.username);
+          return [...prev, user];
+        }
+        console.log('User already in participants list:', user.username);
+        return prev;
       });
-      
+
       // Create peer connection for the new user (we are the initiator since we were here first)
-      if (user.peerId && user.peerId !== peerId && user.peerId !== (socket?.currentPeerId || socket?.id)) {
-        console.log('User joined - checking peer connection conditions:', {
-          hasLocalStream: !!(localStreamRef.current || localStream),
-          userPeerId: user.peerId,
-          currentPeerId: peerIdRef.current || peerId,
-          socketLocalStream: !!socket?.localStream,
-          stateLocalStream: !!localStream
-        });
-      }
-      
-      if ((localStreamRef.current || localStream) && user.peerId && user.peerId !== (peerIdRef.current || peerId)) {
+      // Use a more reliable check for peer IDs
+      const currentPeerId = peerIdRef.current || peerId || io.id;
+      const shouldCreateConnection =
+        user.peerId &&
+        user.peerId !== currentPeerId &&
+        (localStreamRef.current || localStream);
+
+      console.log('Peer connection decision:', {
+        userPeerId: user.peerId,
+        currentPeerId: currentPeerId,
+        hasLocalStream: !!(localStreamRef.current || localStream),
+        shouldCreateConnection: shouldCreateConnection
+      });
+
+      if (shouldCreateConnection) {
         console.log('Creating peer connection for new user (we initiate):', user.username);
+        // Use a shorter timeout to ensure state is settled
         setTimeout(() => {
-          createPeerConnection(user, true);
-        }, 500);
+          // Double-check conditions before creating connection
+          const finalPeerId = peerIdRef.current || peerId || io.id;
+          const finalStream = localStreamRef.current || localStream;
+
+          if (finalStream && user.peerId && user.peerId !== finalPeerId) {
+            console.log('Final check passed, creating peer connection');
+            createPeerConnection(user, true);
+          } else {
+            console.log('Final check failed, skipping peer connection:', {
+              hasStream: !!finalStream,
+              userPeerId: user.peerId,
+              finalPeerId: finalPeerId
+            });
+          }
+        }, 500); // Reduced timeout for faster connection
       } else {
         console.log('Not creating peer connection:', {
-          hasLocalStream: !!(localStreamRef.current || localStream),
           userPeerId: user.peerId,
-          currentPeerId: peerIdRef.current || peerId,
-          sameId: user.peerId === (peerIdRef.current || peerId)
+          currentPeerId: currentPeerId,
+          hasLocalStream: !!(localStreamRef.current || localStream)
         });
       }
     });
@@ -298,42 +347,69 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       console.log('Offer received from:', fromUsername, fromPeerId);
       console.log('Current meeting ID:', meetingId);
       console.log('My peer ID:', peerId);
-      
+
       if (meetingId !== currentMeetingId) {
         console.warn('Received offer for different meeting, ignoring');
         return;
       }
-      
-      const user = { 
-        peerId: fromPeerId, 
+
+      const user = {
+        peerId: fromPeerId,
         username: fromUsername,
         id: fromPeerId
       };
-      
+
+      // Ensure we have the user in our participants list
+      setParticipants(prev => {
+        const exists = prev.find(p => p.peerId === fromPeerId);
+        if (!exists) {
+          console.log('Adding user to participants list from offer:', fromUsername);
+          return [...prev, user];
+        }
+        return prev;
+      });
+
       const pc = createPeerConnection(user, false);
-      
+
+      if (!pc) {
+        console.error('Failed to create peer connection for offer from:', fromUsername);
+        return;
+      }
+
       try {
-        (pc as any).setRemoteDescription(new RTCSessionDescription(offer), () => {
-          console.log('Remote description set for offer from:', fromUsername);
-          
+        console.log('Setting remote description for offer');
+        await new Promise((resolve, reject) => {
+          (pc as any).setRemoteDescription(new RTCSessionDescription(offer), () => {
+            console.log('Remote description set for offer from:', fromUsername);
+            resolve(true);
+          }, (error: any) => {
+            console.error('Error setting remote description:', error);
+            reject(error);
+          });
+        });
+
+        console.log('Creating answer for offer from:', fromUsername);
+        await new Promise((resolve, reject) => {
           (pc as any).createAnswer({}, (answer: any) => {
+            console.log('Answer created, setting local description');
             (pc as any).setLocalDescription(answer, () => {
-              console.log('Answer created and local description set');
-              
+              console.log('Local description set for answer, sending to:', fromUsername);
+
               io.emit('answer', {
                 answer: answer,
                 targetPeerId: fromPeerId,
                 meetingId: meetingId
               });
               console.log('Answer sent to:', fromUsername, fromPeerId);
+              resolve(true);
             }, (error: any) => {
               console.error('Error setting local description for answer:', error);
+              reject(error);
             });
           }, (error: any) => {
             console.error('Error creating answer:', error);
+            reject(error);
           });
-        }, (error: any) => {
-          console.error('Error setting remote description:', error);
         });
       } catch (error) {
         console.error('Error handling offer from:', fromUsername, error);
@@ -344,7 +420,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       const { answer, fromPeerId } = data;
       console.log('=== ANSWER RECEIVED ===');
       console.log('Answer received from peer:', fromPeerId);
-      
+
       setPeerConnections(prevConnections => {
         const pc = prevConnections.get(fromPeerId);
         if (pc) {
@@ -356,6 +432,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           });
         } else {
           console.error('No peer connection found for answer from:', fromPeerId);
+          console.log('Available connections:', Array.from(prevConnections.keys()));
         }
         return prevConnections;
       });
@@ -365,7 +442,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       const { candidate, fromPeerId } = data;
       console.log('=== ICE CANDIDATE RECEIVED ===');
       console.log('ICE candidate from peer:', fromPeerId);
-      
+
       setPeerConnections(prevConnections => {
         const pc = prevConnections.get(fromPeerId);
         if (pc && candidate) {
@@ -379,6 +456,9 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
             });
         } else if (!pc) {
           console.error('No peer connection found for ICE candidate from:', fromPeerId);
+          console.log('Available connections:', Array.from(prevConnections.keys()));
+        } else if (!candidate) {
+          console.warn('Received empty ICE candidate from:', fromPeerId);
         }
         return prevConnections;
       });
@@ -391,31 +471,32 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     console.log('User peer ID:', user.peerId);
     console.log('Is initiator:', isInitiator);
     console.log('Current meeting ID:', currentMeetingId);
-    
-    const existingPc = peerConnections.get(user.peerId);
-    if (existingPc) {
-      console.log('Existing peer connection found, reusing it');
-      return existingPc;
-    }
 
     if (!user.peerId) {
       console.error('Cannot create peer connection: user has no peer ID');
       return null as any;
     }
 
+    // Check if we already have a connection for this user
+    const existingPc = peerConnections.get(user.peerId);
+    if (existingPc) {
+      console.log('Existing peer connection found, reusing it for:', user.username);
+      return existingPc;
+    }
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
-    
+
     // Add local stream tracks - use modern addTrack API instead of deprecated addStream
     const streamToAdd = localStreamRef.current || localStream;
     if (streamToAdd) {
       console.log('Adding local stream tracks to peer connection:', streamToAdd.id);
-      
+
       // Add each track individually (modern WebRTC API)
       streamToAdd.getTracks().forEach(track => {
         console.log('Adding track:', track.kind, track.id);
         pc.addTrack(track, streamToAdd);
       });
-      
+
       console.log('Local stream tracks added successfully');
     } else {
       console.warn('No local stream available when creating peer connection');
@@ -439,20 +520,20 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       console.log('Track kind:', event.track?.kind);
       console.log('Track ID:', event.track?.id);
       console.log('Streams:', event.streams?.length || 0);
-      
+
       if (event.streams && event.streams[0]) {
         const stream = event.streams[0] as MediaStream;
         console.log('=== RECEIVED STREAM ===');
         console.log('Remote stream ID:', stream.id);
         console.log('Remote stream tracks:', stream.getTracks().length);
-        
+
         setRemoteStream(stream);
         setRemoteUser(user);
-        
+
         // Also update participants with active connection status
-        setParticipants(prev => 
-          prev.map(p => 
-            p.peerId === user.peerId 
+        setParticipants(prev =>
+          prev.map(p =>
+            p.peerId === user.peerId
               ? { ...p, hasActiveConnection: true }
               : p
           )
@@ -464,7 +545,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     pc.addEventListener('connectionstatechange', () => {
       console.log('Connection state changed:', pc.connectionState, 'for user:', user.username);
-      
+
       if ((pc as any).connectionState === 'connected') {
         console.log('✅ Peer connection established with:', user.username);
       } else if ((pc as any).connectionState === 'failed' || (pc as any).connectionState === 'disconnected') {
@@ -478,20 +559,29 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     if (isInitiator) {
       console.log('Creating and sending offer to:', user.username);
-      (pc as any).createOffer({}, (offer: any) => {
-        (pc as any).setLocalDescription(offer, () => {
-          socket?.emit('offer', {
-            offer: offer,
-            targetPeerId: user.peerId,
-            meetingId: currentMeetingId
+      // Ensure connection is ready before creating offer
+      setTimeout(() => {
+        if (pc.connectionState === 'new' || pc.connectionState === 'connecting') {
+          (pc as any).createOffer({}, (offer: any) => {
+            console.log('Offer created for:', user.username);
+            (pc as any).setLocalDescription(offer, () => {
+              console.log('Local description set, sending offer');
+              socket?.emit('offer', {
+                offer: offer,
+                targetPeerId: user.peerId,
+                meetingId: currentMeetingId
+              });
+              console.log('Offer sent to:', user.username, user.peerId);
+            }, (error: any) => {
+              console.error('Error setting local description for offer:', user.username, error);
+            });
+          }, (error: any) => {
+            console.error('Error creating offer for:', user.username, error);
           });
-          console.log('Offer sent to:', user.username, user.peerId);
-        }, (error: any) => {
-          console.error('Error setting local description for:', user.username, error);
-        });
-      }, (error: any) => {
-        console.error('Error creating offer for:', user.username, error);
-      });
+        } else {
+          console.warn('Peer connection not in correct state for offer creation:', pc.connectionState);
+        }
+      }, 1000); // Wait for connection to be ready
     }
 
     return pc;
@@ -522,6 +612,26 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         if (response && response.success) {
           setCurrentMeetingId(response.meetingId);
           console.log('Meeting created successfully:', response.meetingId);
+
+          // Set participants from server response
+          if (response.participants) {
+            const participantsWithLocalFlag = response.participants.map((participant: User) => ({
+              ...participant,
+              isLocal: participant.id === socketToUse.id
+            }));
+            setParticipants(participantsWithLocalFlag);
+          } else {
+            // Fallback: Add the initiator to the participants list
+            const initiatorUser = {
+              id: socketToUse.id,
+              username: username,
+              peerId: socketToUse.id,
+              name: username,
+              isLocal: true
+            };
+            setParticipants([initiatorUser]);
+          }
+
           resolve(response.meetingId);
         } else {
           console.error('Failed to create meeting:', response?.error || 'Unknown error');
@@ -557,6 +667,26 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         if (response && response.success) {
           setCurrentMeetingId(response.meetingId);
           console.log('Meeting created successfully:', response.meetingId);
+
+          // Set participants from server response
+          if (response.participants) {
+            const participantsWithLocalFlag = response.participants.map((participant: User) => ({
+              ...participant,
+              isLocal: participant.id === socket.id
+            }));
+            setParticipants(participantsWithLocalFlag);
+          } else {
+            // Fallback: Add the initiator to the participants list
+            const initiatorUser = {
+              id: socket.id,
+              username: username,
+              peerId: socket.id,
+              name: username,
+              isLocal: true
+            };
+            setParticipants([initiatorUser]);
+          }
+
           resolve(response.meetingId);
         } else {
           console.error('Failed to create meeting:', response?.error || 'Unknown error');
@@ -595,9 +725,17 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         
         if (response.success) {
           setCurrentMeetingId(meetingId);
-          setParticipants(response.participants || []);
+
+          // Set participants from server response and mark local user
+          const participantsWithLocalFlag = (response.participants || []).map((participant: User) => ({
+            ...participant,
+            isLocal: participant.id === activeSocket.id
+          }));
+
+          setParticipants(participantsWithLocalFlag);
+
           console.log('Successfully joined meeting:', meetingId);
-          console.log('Number of existing participants:', response.participants?.length || 0);
+          console.log('Number of participants including self:', participantsWithLocalFlag.length);
           
           // Wait longer for state updates, then create peer connections
           setTimeout(() => {
@@ -610,33 +748,38 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
               peerIdRef: peerIdRef.current,
               peerIdSocket: activeSocket.currentPeerId || activeSocket.id
             });
-            
+
             response.participants?.forEach((participant: User) => {
-              console.log('Creating peer connection for existing participant:', {
+              console.log('Processing existing participant:', {
                 username: participant.username,
                 peerId: participant.peerId,
                 id: participant.id
               });
-              
-              // Use ref values for immediate access
+
+              // Use ref values for immediate access with fallback
               const hasStream = !!(localStreamRef.current || localStream);
-              const currentId = peerIdRef.current || peerId;
-              
-              console.log('Peer connection check:', {
+              const currentId = peerIdRef.current || peerId || activeSocket.id;
+
+              console.log('Peer connection check for existing participant:', {
                 hasLocalStream: hasStream,
                 participantPeerId: participant.peerId,
                 currentPeerId: currentId,
                 sameId: participant.peerId === currentId
               });
-              
+
               if (hasStream && participant.peerId && participant.peerId !== currentId) {
-                console.log('✅ Creating peer connection to participant:', participant.username);
+                console.log('✅ Creating peer connection to existing participant:', participant.username);
                 createPeerConnection(participant, true);
               } else {
-                console.log('❌ Skipping peer connection - conditions not met');
+                console.log('❌ Skipping peer connection to existing participant - conditions not met:', {
+                  hasStream: hasStream,
+                  participantPeerId: participant.peerId,
+                  currentPeerId: currentId,
+                  isSameId: participant.peerId === currentId
+                });
               }
             });
-          }, 2000); // Increased timeout to 2 seconds
+          }, 2000); // Increased timeout to ensure all state is settled
           
           resolve(true);
         } else {

@@ -7,7 +7,8 @@ import {
   Dimensions,
   Alert,
   Animated,
-  Share
+  Share,
+  ActivityIndicator
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { WebRTCContext } from '../store/WebRTCProvider';
+import { User } from '../interfaces/webrtc';
+import ParticipantGrid from '../components/ParticipantGrid';
 import { auth } from '../config/firebase';
 
 const { width, height } = Dimensions.get('window');
@@ -37,10 +40,11 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   const [joinCode, setJoinCode] = useState<string>('');
   const [isWaitingForUsers, setIsWaitingForUsers] = useState(true);
   const [connectedUsers, setConnectedUsers] = useState<number>(0);
+  const [isMultiParticipantMode, setIsMultiParticipantMode] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting } = useContext(WebRTCContext);
+  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting, participants } = useContext(WebRTCContext);
 
   useEffect(() => {
     initializeCall();
@@ -91,6 +95,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
           console.error('Meeting ID is empty or undefined');
           Alert.alert('Error', 'Failed to generate meeting ID. Please try again.');
         }
+
       } catch (error) {
         console.error('Failed to initialize WebRTC in instant call:', error);
         Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
@@ -102,6 +107,18 @@ export default function InstantCallScreen({ navigation, route }: Props) {
         { text: 'Cancel', onPress: () => navigation.goBack() }
       ]);
     }
+  };
+
+  const handleAddParticipant = () => {
+    Alert.alert(
+      'Share Join Code',
+      'Share the meeting code with others to add participants to this call.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const toggleViewMode = () => {
+    setIsMultiParticipantMode(!isMultiParticipantMode);
   };
 
 
@@ -202,6 +219,127 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     );
   }
 
+  const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
+  // Use only real participants from WebRTC context, not mock participants
+  const allParticipants = [...participants];
+  const shouldShowMultiView = allParticipants.length > 0;
+
+  console.log('=== INSTANT CALL SCREEN RENDER DEBUG ===');
+  console.log('Should show multi view:', shouldShowMultiView);
+  console.log('Local stream for grid:', !!localStream);
+  console.log('Local stream ID:', localStream?.id);
+  console.log('Current user for grid:', currentUser);
+  console.log('All participants for grid:', allParticipants.length);
+  console.log('Participants from WebRTC context:', participants?.length || 0);
+
+  // Multi-participant grid view
+  if (shouldShowMultiView) {
+    // Don't show multi-view until local stream is available
+    if (!localStream) {
+      return (
+        <View style={styles.container}>
+          <StatusBar style="light" />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#8b5cf6" size="large" />
+            <Text style={styles.loadingText}>Setting up camera...</Text>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        
+        <ParticipantGrid
+          participants={allParticipants}
+          localStream={localStream}
+          remoteStream={null}
+          currentUser={currentUser}
+          onAddParticipant={handleAddParticipant}
+        />
+
+        <View style={styles.topControls}>
+          <TouchableOpacity
+            style={styles.topControlButton}
+            onPress={toggleViewMode}
+          >
+            <LinearGradient
+              colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
+              style={styles.topControlGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="camera" size={20} color="#ffffff" />
+              <Text style={styles.topControlText}>Camera View</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.topControlButton}
+            onPress={handleAddParticipant}
+          >
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.9)', 'rgba(236, 72, 153, 0.9)']}
+              style={styles.topControlGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="person-add" size={20} color="#ffffff" />
+              <Text style={styles.topControlText}>Add</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.multiViewJoinCode}>
+          <LinearGradient
+            colors={['rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 0.6)']}
+            style={styles.multiJoinCodeGradient}
+          >
+            <Text style={styles.multiJoinCodeLabel}>Join Code:</Text>
+            <TouchableOpacity onPress={copyJoinCode} style={styles.multiJoinCodeButton}>
+              <Text style={styles.multiJoinCodeText}>{joinCode || 'GENERATING...'}</Text>
+              <Ionicons name="copy" size={16} color="#ffffff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={shareJoinCode} style={styles.multiShareButton}>
+              <Ionicons name="share" size={16} color="#ffffff" />
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+
+        <View style={styles.multiViewControls}>
+          <TouchableOpacity style={styles.multiControlButton} onPress={flipCamera}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+              style={styles.multiControlGradient}
+            >
+              <Ionicons name="camera-reverse" size={20} color="#ffffff" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.multiEndCallButton} onPress={endCall}>
+            <LinearGradient
+              colors={['#ef4444', '#dc2626']}
+              style={styles.multiControlGradient}
+            >
+              <Ionicons name="call" size={24} color="#ffffff" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.multiControlButton}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+              style={styles.multiControlGradient}
+            >
+              <Ionicons name="mic" size={20} color="#ffffff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Original camera view
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -228,8 +366,8 @@ export default function InstantCallScreen({ navigation, route }: Props) {
                 <Text style={styles.statusText}>Ready to connect</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.flipButton} onPress={flipCamera}>
-              <Ionicons name="camera-reverse" size={24} color="#ffffff" />
+            <TouchableOpacity style={styles.flipButton} onPress={toggleViewMode}>
+              <Ionicons name="people" size={20} color="#ffffff" />
             </TouchableOpacity>
           </Animated.View>
 
@@ -502,5 +640,104 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  topControls: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  topControlButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  topControlGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  topControlText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 6,
+  },
+  multiViewJoinCode: {
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    right: 20,
+    zIndex: 100,
+  },
+  multiJoinCodeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  multiJoinCodeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginRight: 8,
+  },
+  multiJoinCodeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  multiJoinCodeText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 2,
+    marginRight: 6,
+  },
+  multiShareButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  multiViewControls: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+    zIndex: 100,
+  },
+  multiControlButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  multiControlGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  multiEndCallButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    overflow: 'hidden',
   },
 });

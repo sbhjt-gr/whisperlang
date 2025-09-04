@@ -6,6 +6,7 @@ export interface User {
   id?: string;
   name?: string;
   phoneNumbers?: { number?: string; }[];
+  isLocal?: boolean;
 }
 
 export interface WebRTCContext {
