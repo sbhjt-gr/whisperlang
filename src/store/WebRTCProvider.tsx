@@ -48,6 +48,17 @@ const ICE_SERVERS = {
     {
       urls: getStunServers(),
     },
+    // Public TURN servers for testing
+    {
+      urls: 'turn:turn.bistri.com:80',
+      username: 'homeo',
+      credential: 'homeo'
+    },
+    {
+      urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+      username: 'webrtc',
+      credential: 'webrtc'
+    }
   ],
 };
 
@@ -57,6 +68,7 @@ const initialValues: WebRTCContextType = {
   users: [],
   localStream: null,
   remoteStream: null,
+  remoteStreams: new Map(),
   remoteUser: null,
   initialize: () => {},
   setUsername: () => {},
@@ -71,6 +83,7 @@ const initialValues: WebRTCContextType = {
   createMeetingWithSocket: () => Promise.resolve(''),
   joinMeeting: () => Promise.resolve(false),
   leaveMeeting: () => {},
+  refreshParticipantVideo: () => Promise.resolve(),
   currentMeetingId: null,
   participants: [],
 };
@@ -91,6 +104,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(
     initialValues.remoteStream,
   );
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [remoteUser, setRemoteUser] = useState<User | null>(null);
   const [socket, setSocket] = useState<any>(null);
   const [isMuted, setIsMuted] = useState(initialValues.isMuted);
@@ -329,6 +343,13 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         return new Map(prev);
       });
       
+      // Clear the remote stream for this user
+      setRemoteStreams(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(user.peerId);
+        return newMap;
+      });
+      
       if (user.id === remoteUser?.id) {
         setRemoteUser(null);
         setRemoteStream(null);
@@ -520,6 +541,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       console.log('Track kind:', event.track?.kind);
       console.log('Track ID:', event.track?.id);
       console.log('Streams:', event.streams?.length || 0);
+      console.log('From user:', user.username, user.peerId);
 
       if (event.streams && event.streams[0]) {
         const stream = event.streams[0] as MediaStream;
@@ -527,6 +549,10 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         console.log('Remote stream ID:', stream.id);
         console.log('Remote stream tracks:', stream.getTracks().length);
 
+        // Store stream per participant
+        setRemoteStreams(prev => new Map(prev.set(user.peerId, stream)));
+        
+        // For backward compatibility, also set the global remoteStream for 1-on-1 calls
         setRemoteStream(stream);
         setRemoteUser(user);
 
@@ -836,6 +862,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     setActiveCall(null);
     setRemoteUser(null);
     setRemoteStream(null);
+    setRemoteStreams(new Map());
     leaveMeeting();
   };
 
@@ -846,8 +873,112 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     leaveMeeting();
     setLocalStream(null);
     setRemoteStream(null);
+    setRemoteStreams(new Map());
     setUsername('');
     setPeerId('');
+  };
+
+  const refreshParticipantVideo = async (participantPeerId: string): Promise<void> => {
+    console.log('=== REFRESH PARTICIPANT VIDEO ===');
+    console.log('Refreshing video for participant:', participantPeerId);
+    console.log('Current meeting ID:', currentMeetingId);
+    console.log('Local stream available:', !!localStream);
+    console.log('Socket connected:', socket?.connected);
+
+    if (!socket || !socket.connected) {
+      console.error('Socket not connected, cannot refresh participant video');
+      throw new Error('Socket not connected');
+    }
+
+    if (!localStream) {
+      console.error('No local stream available, cannot refresh participant video');
+      throw new Error('No local stream available');
+    }
+
+    if (!currentMeetingId) {
+      console.error('Not in a meeting, cannot refresh participant video');
+      throw new Error('Not in a meeting');
+    }
+
+    // Find the participant in the participants list
+    const participant = participants.find(p => p.peerId === participantPeerId);
+    if (!participant) {
+      console.error('Participant not found in participants list:', participantPeerId);
+      throw new Error('Participant not found');
+    }
+
+    console.log('Found participant:', participant.username, participant.peerId);
+
+    // Close existing peer connection
+    const existingPc = peerConnections.get(participantPeerId);
+    if (existingPc) {
+      console.log('Closing existing peer connection for:', participant.username);
+      existingPc.close();
+      setPeerConnections(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(participantPeerId);
+        return newMap;
+      });
+    }
+
+    // Clear remote stream for this participant
+    console.log('Clearing remote stream for:', participant.username);
+    setRemoteStreams(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(participantPeerId);
+      return newMap;
+    });
+
+    // Update participant status to indicate refreshing
+    setParticipants(prev =>
+      prev.map(p =>
+        p.peerId === participantPeerId
+          ? { ...p, isRefreshing: true, hasActiveConnection: false }
+          : p
+      )
+    );
+
+    try {
+      console.log('Creating new peer connection for:', participant.username);
+      const newPc = createPeerConnection(participant, true);
+
+      if (!newPc) {
+        throw new Error('Failed to create new peer connection');
+      }
+
+      console.log('New peer connection created successfully for:', participant.username);
+
+      // Wait a bit for the connection to establish
+      setTimeout(() => {
+        console.log('Checking connection status after refresh for:', participant.username);
+        const pc = peerConnections.get(participantPeerId);
+        if (pc) {
+          console.log('Connection state:', pc.connectionState);
+          console.log('ICE connection state:', pc.iceConnectionState);
+          console.log('ICE gathering state:', pc.iceGatheringState);
+        }
+
+        // Update participant status
+        setParticipants(prev =>
+          prev.map(p =>
+            p.peerId === participantPeerId
+              ? { ...p, isRefreshing: false }
+              : p
+          )
+        );
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error refreshing participant video:', error);
+      setParticipants(prev =>
+        prev.map(p =>
+          p.peerId === participantPeerId
+            ? { ...p, isRefreshing: false, hasActiveConnection: false }
+            : p
+        )
+      );
+      throw error;
+    }
   };
 
   return (
@@ -863,6 +994,8 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         setLocalStream,
         remoteStream,
         setRemoteStream,
+        remoteStreams,
+        setRemoteStreams,
         initialize,
         call,
         switchCamera,
@@ -876,6 +1009,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         createMeetingWithSocket,
         joinMeeting,
         leaveMeeting,
+        refreshParticipantVideo,
         currentMeetingId,
         participants,
       }}>

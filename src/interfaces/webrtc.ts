@@ -7,6 +7,8 @@ export interface User {
   name?: string;
   phoneNumbers?: { number?: string; }[];
   isLocal?: boolean;
+  hasActiveConnection?: boolean;
+  isRefreshing?: boolean;
 }
 
 export interface WebRTCContext {
@@ -20,6 +22,8 @@ export interface WebRTCContext {
   setLocalStream?: React.Dispatch<React.SetStateAction<MediaStream | null>>;
   remoteStream: MediaStream | null;
   setRemoteStream?: React.Dispatch<React.SetStateAction<MediaStream | null>>;
+  remoteStreams: Map<string, MediaStream>;
+  setRemoteStreams?: React.Dispatch<React.SetStateAction<Map<string, MediaStream>>>;
   initialize: (username?: string) => void;
   call: (user: User) => void;
   switchCamera: () => void;
@@ -33,6 +37,7 @@ export interface WebRTCContext {
   createMeetingWithSocket: (socket: any) => Promise<string>;
   joinMeeting: (meetingId: string, socketToUse?: any) => Promise<boolean>;
   leaveMeeting: () => void;
+  refreshParticipantVideo: (participantPeerId: string) => Promise<void>;
   currentMeetingId: string | null;
   participants: User[];
 }

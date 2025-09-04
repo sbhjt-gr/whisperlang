@@ -45,6 +45,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   const {
     localStream,
     remoteStream,
+    remoteStreams,
     activeCall,
     remoteUser,
     participants,
@@ -56,6 +57,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     createMeeting,
     joinMeeting,
     currentMeetingId,
+    refreshParticipantVideo,
   } = useContext(WebRTCContext);
 
   console.log('=== WEBRTC CONTEXT STATE ===');
@@ -238,7 +240,10 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   };
 
   const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
-  const allParticipants = [...participants, ...mockParticipants];
+  // Only show mock participants if we're not in a real meeting
+  const allParticipants = currentMeetingId && participants.length > 0 
+    ? [...participants] 
+    : [...participants, ...mockParticipants];
   const shouldShowMultiView = isMultiParticipantMode || allParticipants.length > 1;
 
   console.log('=== VIDEO CALL SCREEN RENDER DEBUG ===');
@@ -272,9 +277,10 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         <ParticipantGrid
           participants={allParticipants}
           localStream={localStream}
-          remoteStream={remoteStream}
+          remoteStreams={remoteStreams}
           currentUser={currentUser}
           onAddParticipant={handleAddParticipant}
+          onRefreshParticipant={refreshParticipantVideo}
         />
 
         <View style={styles.topControls}>

@@ -44,7 +44,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting, participants } = useContext(WebRTCContext);
+  const { initialize, setUsername, localStream, remoteUser, activeCall, createMeeting, createMeetingWithSocket, currentMeetingId, leaveMeeting, participants, remoteStreams, refreshParticipantVideo } = useContext(WebRTCContext);
 
   useEffect(() => {
     initializeCall();
@@ -254,9 +254,10 @@ export default function InstantCallScreen({ navigation, route }: Props) {
         <ParticipantGrid
           participants={allParticipants}
           localStream={localStream}
-          remoteStream={null}
+          remoteStreams={remoteStreams}
           currentUser={currentUser}
           onAddParticipant={handleAddParticipant}
+          onRefreshParticipant={refreshParticipantVideo}
         />
 
         <View style={styles.topControls}>

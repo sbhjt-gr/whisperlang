@@ -45,6 +45,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   const {
     localStream,
     remoteStream,
+    remoteStreams,
     activeCall,
     remoteUser,
     participants,
@@ -56,6 +57,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     createMeeting,
     joinMeeting,
     currentMeetingId,
+    refreshParticipantVideo,
   } = useContext(WebRTCContext);
 
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -241,9 +243,10 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         <ParticipantGrid
           participants={allParticipants}
           localStream={localStream}
-          remoteStream={remoteStream}
+          remoteStreams={remoteStreams}
           currentUser={currentUser}
           onAddParticipant={handleAddParticipant}
+          onRefreshParticipant={refreshParticipantVideo}
         />
 
         <View style={styles.topControls}>

@@ -97,7 +97,7 @@ const MultiParticipantDemo: React.FC = () => {
         <ParticipantGrid
           participants={participants}
           localStream={null}
-          remoteStream={null}
+          remoteStreams={new Map()}
           currentUser="You"
           onAddParticipant={handleAddParticipant}
         />

@@ -16,17 +16,19 @@ const { width, height } = Dimensions.get('window');
 interface ParticipantGridProps {
   participants: User[];
   localStream: any;
-  remoteStream: any;
+  remoteStreams?: Map<string, any>;
   currentUser: string;
   onAddParticipant: () => void;
+  onRefreshParticipant?: (participantPeerId: string) => void;
 }
 
 const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   participants,
   localStream,
-  remoteStream,
+  remoteStreams = new Map(),
   currentUser,
   onAddParticipant,
+  onRefreshParticipant,
 }) => {
   // Debug logging for props
   console.log('=== PARTICIPANT GRID PROPS DEBUG ===');
@@ -34,7 +36,9 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   console.log('Local stream available:', !!localStream);
   console.log('Local stream ID:', localStream?.id);
   console.log('Current user:', currentUser);
-  console.log('Remote stream available:', !!remoteStream);
+  console.log('Remote streams available:', !!remoteStreams);
+  console.log('Remote streams count:', remoteStreams?.size || 0);
+  console.log('Remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
   console.log('Participants details:', participants.map(p => ({
     username: p.username,
     peerId: p.peerId,
@@ -144,18 +148,35 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                   </LinearGradient>
                 </View>
               ) : (
-                <View style={styles.mockVideoContainer}>
-                  <LinearGradient
-                    colors={['#4f46e5', '#7c3aed']}
-                    style={styles.mockVideoGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={styles.avatarContainer}>
-                      <Ionicons name="person" size={40} color="#ffffff" />
+                (() => {
+                  const remoteStream = participant && remoteStreams ? remoteStreams.get(participant.peerId) : null;
+                  console.log('=== REMOTE PARTICIPANT RENDER ===');
+                  console.log('Participant:', participant?.username, participant?.peerId);
+                  console.log('Remote stream available:', !!remoteStream);
+                  
+                  return remoteStream ? (
+                    <RTCView
+                      style={styles.videoStream}
+                      streamURL={remoteStream.toURL()}
+                      objectFit="cover"
+                      zOrder={1}
+                      mirror={false}
+                    />
+                  ) : (
+                    <View style={styles.mockVideoContainer}>
+                      <LinearGradient
+                        colors={['#4f46e5', '#7c3aed']}
+                        style={styles.mockVideoGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <View style={styles.avatarContainer}>
+                          <Ionicons name="person" size={40} color="#ffffff" />
+                        </View>
+                      </LinearGradient>
                     </View>
-                  </LinearGradient>
-                </View>
+                  );
+                })()
               )}
               
               <View style={styles.participantInfo}>
@@ -165,12 +186,30 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                 >
-                  <Text style={styles.participantName}>
-                    {isLocal ? 'You' : participant?.name || participant?.username || `User ${index}`}
-                  </Text>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.participantName}>
+                      {isLocal ? 'You' : participant?.name || participant?.username || `User ${index}`}
+                    </Text>
+                    {!isLocal && onRefreshParticipant && participant?.peerId && (
+                      <TouchableOpacity
+                        style={styles.refreshButton}
+                        onPress={() => onRefreshParticipant(participant.peerId)}
+                        disabled={participant.isRefreshing}
+                      >
+                        <Ionicons
+                          name={participant.isRefreshing ? "refresh-circle" : "refresh"}
+                          size={16}
+                          color="#ffffff"
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                   {participant?.peerId && (
                     <View style={styles.statusIndicator}>
                       <View style={styles.connectionDot} />
+                      {participant.isRefreshing && (
+                        <Text style={styles.refreshingText}>Refreshing...</Text>
+                      )}
                     </View>
                   )}
                 </LinearGradient>
@@ -316,20 +355,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
   participantName: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
   },
+  refreshButton: {
+    marginLeft: 8,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
   statusIndicator: {
     marginLeft: 8,
+    alignItems: 'center',
   },
   connectionDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#10b981',
+  },
+  refreshingText: {
+    color: '#ffffff',
+    fontSize: 10,
+    marginTop: 2,
   },
   addButtonContent: {
     flex: 1,
