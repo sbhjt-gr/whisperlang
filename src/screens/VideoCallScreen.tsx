@@ -21,21 +21,9 @@ import {WebRTCContext} from '../store/WebRTCContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '../store/WebRTCTypes';
+import ParticipantGrid from '../components/ParticipantGrid';
 
 const {width, height} = Dimensions.get('window');
-
-interface ParticipantWithAnimation extends User {
-  scale?: Animated.Value;
-  opacity?: Animated.Value;
-  translateY?: Animated.Value;
-}
-
-interface VideoTile {
-  id: string;
-  stream: any;
-  participant: User;
-  isLocal: boolean;
-}
 
 type VideoCallScreenNavigationProp = StackNavigationProp<RootStackParamList, 'VideoCallScreen'>;
 type VideoCallScreenRouteProp = RouteProp<RootStackParamList, 'VideoCallScreen'>;
@@ -67,8 +55,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isGridMode, setIsGridMode] = useState(false);
-  const [videoTiles, setVideoTiles] = useState<VideoTile[]>([]);
-  const [participantAnimations, setParticipantAnimations] = useState<Map<string, ParticipantWithAnimation>>(new Map());
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const controlsAnim = useRef(new Animated.Value(1)).current;
@@ -109,49 +95,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       }).start();
     },
   });
-
-  const buildVideoTiles = useCallback(() => {
-    const tiles: VideoTile[] = [];
-    const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
-    const currentUserId = peerId || auth.currentUser?.uid || 'local';
-
-    if (localStream) {
-      tiles.push({
-        id: `local-user-${currentUserId}`,
-        stream: localStream,
-        participant: {
-          id: `local-user-${currentUserId}`,
-          username: currentUser,
-          name: currentUser,
-          peerId: currentUserId,
-          isLocal: true,
-        },
-        isLocal: true,
-      });
-    }
-
-    participants.forEach(participant => {
-      const stream = remoteStreams?.get(participant.peerId);
-      if (stream && participant.id !== currentUserId) {
-        tiles.push({
-          id: participant.id,
-          stream,
-          participant,
-          isLocal: false,
-        });
-      }
-    });
-
-    setVideoTiles(tiles);
-  }, [localStream, participants, remoteStreams, peerId]);
-
-  const getOptimalLayout = (count: number) => {
-    if (count === 1) return { rows: 1, cols: 1, featured: true };
-    if (count === 2) return { rows: 1, cols: 2, featured: false };
-    if (count <= 4) return { rows: 2, cols: 2, featured: false };
-    if (count <= 6) return { rows: 2, cols: 3, featured: false };
-    return { rows: 3, cols: 3, featured: false };
-  };
 
   const toggleControls = useCallback(() => {
     if (controlsTimer.current) {
@@ -348,199 +291,32 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     initializeCall();
   }, [route.params.type, route.params.joinCode, localStream, currentMeetingId]);
 
-  useEffect(() => {
-    buildVideoTiles();
-  }, [buildVideoTiles]);
-
-  useEffect(() => {
-    const currentUserId = peerId || auth.currentUser?.uid || 'local';
-    const localUserFullId = `local-user-${currentUserId}`;
-    
-    setParticipantAnimations(prevAnimationMap => {
-      const newAnimationMap = new Map(prevAnimationMap);
-      let hasChanges = false;
-
-      participants.forEach(participant => {
-        if (!newAnimationMap.has(participant.id) && 
-            participant.id !== currentUserId && 
-            participant.id !== localUserFullId && 
-            !participant.isLocal) {
-          const scale = new Animated.Value(0);
-          const opacity = new Animated.Value(0);
-          const translateY = new Animated.Value(50);
-
-          const animatedParticipant: ParticipantWithAnimation = {
-            ...participant,
-            scale,
-            opacity,
-            translateY,
-          };
-
-          newAnimationMap.set(participant.id, animatedParticipant);
-          hasChanges = true;
-
-          Animated.parallel([
-            Animated.spring(scale, {
-              toValue: 1,
-              useNativeDriver: true,
-              tension: 120,
-              friction: 8,
-            }),
-            Animated.timing(opacity, {
-              toValue: 1,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }
-      });
-
-      Array.from(newAnimationMap.keys()).forEach(participantId => {
-        if (!participants.find(p => p.id === participantId) && 
-            participantId !== currentUserId && 
-            participantId !== localUserFullId) {
-          const participant = newAnimationMap.get(participantId);
-          if (participant?.scale && participant?.opacity) {
-            Animated.parallel([
-              Animated.spring(participant.scale, {
-                toValue: 0,
-                useNativeDriver: true,
-                tension: 120,
-                friction: 8,
-              }),
-              Animated.timing(participant.opacity, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-              }),
-            ]).start(() => {
-              setParticipantAnimations(current => {
-                const updated = new Map(current);
-                updated.delete(participantId);
-                return updated;
-              });
-            });
-          }
-          newAnimationMap.delete(participantId);
-          hasChanges = true;
-        }
-      });
-
-      return hasChanges ? newAnimationMap : prevAnimationMap;
-    });
-  }, [participants, peerId]);
-
-  const renderVideoTile = (tile: VideoTile, index: number, layout: any) => {
-    const animatedParticipant = participantAnimations.get(tile.id);
-    const tileWidth = layout.featured ? width : (width - 40) / layout.cols;
-    const tileHeight = layout.featured ? height : (height * 0.7) / layout.rows;
-
-    return (
-      <Animated.View
-        key={`grid-tile-${tile.id}`}
-        style={[
-          styles.videoTile,
-          {
-            width: tileWidth,
-            height: tileHeight,
-            opacity: animatedParticipant?.opacity || 1,
-            transform: [
-              { scale: animatedParticipant?.scale || 1 },
-              { translateY: animatedParticipant?.translateY || 0 },
-            ],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={tile.isLocal 
-            ? ['rgba(139, 92, 246, 0.3)', 'rgba(236, 72, 153, 0.3)']
-            : ['rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.1)']
-          }
-          style={styles.videoTileGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          {tile.stream ? (
-            <RTCView
-              style={styles.videoStream}
-              streamURL={tile.stream.toURL()}
-              objectFit="cover"
-              mirror={tile.isLocal}
-              zOrder={tile.isLocal ? 1 : 0}
-            />
-          ) : (
-            <View style={styles.noVideoContainer}>
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={40} color="#ffffff" />
-              </View>
-              <Text style={styles.noVideoText}>Camera off</Text>
-            </View>
-          )}
-          
-          <View style={styles.participantInfoOverlay}>
-            <LinearGradient
-              colors={['rgba(0, 0, 0, 0.8)', 'rgba(0, 0, 0, 0.4)']}
-              style={styles.participantInfoBg}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-            >
-              <Text style={styles.participantName}>
-                {tile.participant.isLocal ? 'You' : tile.participant.name || tile.participant.username}
-              </Text>
-              {!tile.participant.isLocal && (
-                <View style={styles.connectionIndicator}>
-                  <View style={styles.connectionDot} />
-                </View>
-              )}
-            </LinearGradient>
-          </View>
-        </LinearGradient>
-      </Animated.View>
-    );
-  };
-
   const renderGridView = () => {
-    const layout = getOptimalLayout(videoTiles.length);
-    
     return (
-      <View style={styles.gridContainer}>
-        <View style={[styles.videoGrid, { flexDirection: layout.rows === 1 ? 'row' : 'column' }]}>
-          {Array.from({ length: layout.rows }, (_, rowIndex) => (
-            <View key={`row-${rowIndex}`} style={styles.gridRow}>
-              {Array.from({ length: layout.cols }, (_, colIndex) => {
-                const tileIndex = rowIndex * layout.cols + colIndex;
-                const tile = videoTiles[tileIndex];
-                
-                if (!tile) return <View key={`empty-${tileIndex}`} style={{ flex: 1 }} />;
-                
-                return renderVideoTile(tile, tileIndex, layout);
-              })}
-            </View>
-          ))}
-        </View>
-      </View>
+      <ParticipantGrid
+        participants={participants}
+        localStream={localStream}
+        remoteStreams={remoteStreams}
+        currentUser={auth.currentUser?.uid || 'anonymous'}
+        onRefreshParticipant={refreshParticipantVideo}
+      />
     );
   };
 
   const renderFeaturedView = () => {
-    const remoteTile = videoTiles.find(tile => !tile.isLocal);
-    const localTile = videoTiles.find(tile => tile.isLocal);
+    const remoteParticipant = participants.find(p => !p.isLocal);
+    const remoteStream = remoteParticipant ? remoteStreams?.get(remoteParticipant.peerId) : null;
     
     return (
       <View style={styles.featuredContainer}>
-        {remoteTile ? (
+        {remoteStream && remoteParticipant ? (
           <Animated.View 
-            key={`featured-remote-${remoteTile.id}`}
+            key={`featured-remote-${remoteParticipant.peerId}`}
             style={[styles.remoteVideoContainer, { opacity: fadeAnim }]}
           >
             <RTCView
               style={styles.remoteVideo}
-              streamURL={remoteTile.stream.toURL()}
+              streamURL={remoteStream.toURL()}
               objectFit="cover"
             />
           </Animated.View>
@@ -571,9 +347,9 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           </Animated.View>
         )}
         
-        {localTile && (
+        {localStream && (
           <Animated.View
-            key={`featured-local-${localTile.id}`}
+            key={`featured-local-stream`}
             {...panResponder.panHandlers}
             style={[
               styles.localVideoContainer,
@@ -591,7 +367,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             >
               <RTCView
                 style={styles.localVideo}
-                streamURL={localTile.stream.toURL()}
+                streamURL={localStream.toURL()}
                 objectFit="cover"
                 mirror={true}
                 zOrder={1}
@@ -622,7 +398,12 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     );
   }
 
-  const shouldShowGrid = isGridMode || videoTiles.length > 2;
+  // Standardize layout: use featured view for 1-on-1 calls, grid view for groups or when toggled
+  // Ensure creator and joiner see identical layout for the same participant count
+  
+  // Count total participants (local + remote)
+  const totalParticipants = participants.length + 1; // +1 for local user
+  const shouldUseFeaturedViewForCall = totalParticipants <= 2 && !isGridMode;
 
   return (
     <TouchableOpacity
@@ -645,7 +426,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         ]}
       />
       
-      {shouldShowGrid ? renderGridView() : renderFeaturedView()}
+      {shouldUseFeaturedViewForCall ? renderFeaturedView() : renderGridView()}
       
       <Animated.View
         style={[
@@ -672,12 +453,12 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             end={{ x: 1, y: 1 }}
           >
             <Ionicons 
-              name={shouldShowGrid ? "person" : "grid"} 
+              name={shouldUseFeaturedViewForCall ? "grid" : "person"} 
               size={20} 
               color="#ffffff" 
             />
             <Text style={styles.topControlText}>
-              {shouldShowGrid ? "Focus" : "Grid"}
+              {shouldUseFeaturedViewForCall ? "Grid" : "Focus"}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -861,89 +642,6 @@ const styles = StyleSheet.create({
   localVideo: {
     flex: 1,
     borderRadius: 13,
-  },
-  gridContainer: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 20,
-  },
-  videoGrid: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 5,
-  },
-  videoTile: {
-    margin: 5,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  videoTileGradient: {
-    flex: 1,
-    padding: 2,
-  },
-  videoStream: {
-    flex: 1,
-    borderRadius: 14,
-  },
-  noVideoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  avatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  noVideoText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  participantInfoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  participantInfoBg: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  participantName: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  connectionIndicator: {
-    marginLeft: 8,
-    alignItems: 'center',
-  },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10b981',
   },
   topControls: {
     position: 'absolute',
