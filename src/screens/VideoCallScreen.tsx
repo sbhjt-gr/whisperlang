@@ -10,7 +10,9 @@ import {
   Alert,
   PanResponder,
   StatusBar as RNStatusBar,
+  Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import {RTCView} from 'react-native-webrtc';
 import { StatusBar } from 'expo-status-bar';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -65,6 +67,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isGridMode, setIsGridMode] = useState(false);
+  const [isInstantCall, setIsInstantCall] = useState(false);
+  const [showJoinCodeUI, setShowJoinCodeUI] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const controlsAnim = useRef(new Animated.Value(1)).current;
@@ -153,6 +157,34 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       }),
     ]).start();
   }, [backgroundAnim]);
+
+  const shareJoinCode = useCallback(async () => {
+    if (!currentMeetingId) {
+      Alert.alert('Please wait', 'Meeting code is still being generated.');
+      return;
+    }
+    
+    try {
+      const message = `Join my WhisperLang video call!\n\nJoin Code: ${currentMeetingId}\n\nDownload WhisperLang and enter this code to join the call with real-time translation.`;
+      
+      await Share.share({
+        message,
+        title: 'Join My Video Call',
+      });
+    } catch (error) {
+      console.error('Error sharing join code:', error);
+    }
+  }, [currentMeetingId]);
+
+  const copyJoinCode = useCallback(() => {
+    if (!currentMeetingId) {
+      Alert.alert('Please wait', 'Meeting code is still being generated.');
+      return;
+    }
+    
+    Clipboard.setStringAsync(currentMeetingId);
+    Alert.alert('Copied!', 'Join code copied to clipboard');
+  }, [currentMeetingId]);
 
   const handleCloseCall = useCallback(() => {
     Animated.parallel([
@@ -259,21 +291,39 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           }
           
         } else if (route.params.type === 'instant') {
+          // Set instant call mode and show join code UI
+          setIsInstantCall(true);
+          setShowJoinCodeUI(true);
+          
           const meetingId = route.params.joinCode || route.params.id;
           
           if (meetingId) {
             try {
               const joined = await joinMeeting(meetingId, socketConnection);
               if (!joined) {
-                await createMeeting();
+                // If joining fails, create a new meeting for instant call
+                const newMeetingId = await createMeeting();
+                console.log('Created new meeting for instant call:', newMeetingId);
+              } else {
+                // Successfully joined an existing instant call
+                setShowJoinCodeUI(false);
               }
             } catch (error) {
-              await createMeeting();
+              // If joining fails, create a new meeting for instant call
+              const newMeetingId = await createMeeting();
+              console.log('Created new meeting for instant call after error:', newMeetingId);
             }
+          } else {
+            // No meeting ID provided, create a new instant call
+            const newMeetingId = await createMeeting();
+            console.log('Created new instant call meeting:', newMeetingId);
           }
           
         } else if (!route.params.type || route.params.type === 'create') {
           const meetingId = await createMeeting();
+          
+          // For regular meeting creation, show the join code UI as well
+          setShowJoinCodeUI(true);
           
           Alert.alert(
             'Meeting Created',
@@ -300,6 +350,14 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
     initializeCall();
   }, [route.params.type, route.params.joinCode, localStream, currentMeetingId]);
+
+  useEffect(() => {
+    // Hide join code UI when participants join
+    const remoteParticipants = participants.filter(p => !p.isLocal && p.peerId !== peerId);
+    if (remoteParticipants.length > 0) {
+      setShowJoinCodeUI(false);
+    }
+  }, [participants, peerId]);
 
   const renderGridView = () => {
     // Filter out local participants to prevent duplicates 
@@ -357,6 +415,30 @@ export default function VideoCallScreen({ navigation, route }: Props) {
                     : 'Waiting for participants to join...'
                   }
                 </Text>
+                
+                {/* Join Code UI for instant calls and meeting creation */}
+                {showJoinCodeUI && currentMeetingId && (
+                  <View style={styles.joinCodeContainer}>
+                    <Text style={styles.joinCodeLabel}>Share this code to invite others:</Text>
+                    <TouchableOpacity style={styles.joinCodeBox} onPress={copyJoinCode}>
+                      <Text style={styles.joinCodeText}>{currentMeetingId}</Text>
+                      <Ionicons name="copy-outline" size={20} color="#8b5cf6" />
+                    </TouchableOpacity>
+                    <View style={styles.shareButtons}>
+                      <TouchableOpacity style={styles.shareButton} onPress={shareJoinCode}>
+                        <LinearGradient
+                          colors={['#667eea', '#764ba2']}
+                          style={styles.shareButtonGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <Ionicons name="share-outline" size={20} color="#ffffff" />
+                          <Text style={styles.shareButtonText}>Share Code</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             </LinearGradient>
           </Animated.View>
@@ -658,6 +740,57 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     marginTop: 8,
     textAlign: 'center',
+  },
+  joinCodeContainer: {
+    marginTop: 30,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 16,
+    padding: 20,
+    minWidth: 280,
+  },
+  joinCodeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  joinCodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  joinCodeText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#667eea',
+    letterSpacing: 2,
+    marginRight: 12,
+  },
+  shareButtons: {
+    alignItems: 'center',
+  },
+  shareButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    minWidth: 140,
+  },
+  shareButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  shareButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8,
   },
   localVideoContainer: {
     position: 'absolute',

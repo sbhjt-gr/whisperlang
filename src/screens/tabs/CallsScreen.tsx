@@ -92,7 +92,12 @@ export default function CallsScreen({ navigation }: Props) {
   };
   
   const createMeeting = (): void => {
-    navigation.navigate('InstantCallScreen');
+    const meetingId = `INSTANT_${Date.now()}`;
+    navigation.navigate('VideoCallScreen', {
+      id: meetingId,
+      type: 'instant',
+      joinCode: meetingId
+    });
   };
 
   return (
