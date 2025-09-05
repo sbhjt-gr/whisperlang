@@ -110,6 +110,65 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     },
   });
 
+  const animateParticipantEntry = useCallback((participant: User) => {
+    const scale = new Animated.Value(0);
+    const opacity = new Animated.Value(0);
+    const translateY = new Animated.Value(50);
+
+    const animatedParticipant: ParticipantWithAnimation = {
+      ...participant,
+      scale,
+      opacity,
+      translateY,
+    };
+
+    setParticipantAnimations(prev => new Map(prev.set(participant.id, animatedParticipant)));
+
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 120,
+        friction: 8,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const animateParticipantExit = useCallback((participantId: string) => {
+    const participant = participantAnimations.get(participantId);
+    if (!participant || !participant.scale || !participant.opacity) return;
+
+    Animated.parallel([
+      Animated.spring(participant.scale, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 120,
+        friction: 8,
+      }),
+      Animated.timing(participant.opacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setParticipantAnimations(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(participantId);
+        return newMap;
+      });
+    });
+  }, [participantAnimations]);
+
   const buildVideoTiles = useCallback(() => {
     const tiles: VideoTile[] = [];
     const currentUser = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'You';
@@ -117,10 +176,10 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
     if (localStream) {
       tiles.push({
-        id: `local-user-${currentUserId}`,
+        id: `local-screennew-${currentUserId}`,
         stream: localStream,
         participant: {
-          id: `local-user-${currentUserId}`,
+          id: `local-screennew-${currentUserId}`,
           username: currentUser,
           name: currentUser,
           peerId: currentUserId,
@@ -132,7 +191,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
     participants.forEach(participant => {
       const stream = remoteStreams?.get(participant.peerId);
-      if (stream && participant.id !== currentUserId) {
+      if (stream) {
         tiles.push({
           id: participant.id,
           stream,
@@ -353,87 +412,18 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   }, [buildVideoTiles]);
 
   useEffect(() => {
-    const currentUserId = peerId || auth.currentUser?.uid || 'local';
-    const localUserFullId = `local-user-${currentUserId}`;
-    
-    setParticipantAnimations(prevAnimationMap => {
-      const newAnimationMap = new Map(prevAnimationMap);
-      let hasChanges = false;
-
-      participants.forEach(participant => {
-        if (!newAnimationMap.has(participant.id) && 
-            participant.id !== currentUserId && 
-            participant.id !== localUserFullId && 
-            !participant.isLocal) {
-          const scale = new Animated.Value(0);
-          const opacity = new Animated.Value(0);
-          const translateY = new Animated.Value(50);
-
-          const animatedParticipant: ParticipantWithAnimation = {
-            ...participant,
-            scale,
-            opacity,
-            translateY,
-          };
-
-          newAnimationMap.set(participant.id, animatedParticipant);
-          hasChanges = true;
-
-          Animated.parallel([
-            Animated.spring(scale, {
-              toValue: 1,
-              useNativeDriver: true,
-              tension: 120,
-              friction: 8,
-            }),
-            Animated.timing(opacity, {
-              toValue: 1,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(translateY, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }
-      });
-
-      Array.from(newAnimationMap.keys()).forEach(participantId => {
-        if (!participants.find(p => p.id === participantId) && 
-            participantId !== currentUserId && 
-            participantId !== localUserFullId) {
-          const participant = newAnimationMap.get(participantId);
-          if (participant?.scale && participant?.opacity) {
-            Animated.parallel([
-              Animated.spring(participant.scale, {
-                toValue: 0,
-                useNativeDriver: true,
-                tension: 120,
-                friction: 8,
-              }),
-              Animated.timing(participant.opacity, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-              }),
-            ]).start(() => {
-              setParticipantAnimations(current => {
-                const updated = new Map(current);
-                updated.delete(participantId);
-                return updated;
-              });
-            });
-          }
-          newAnimationMap.delete(participantId);
-          hasChanges = true;
-        }
-      });
-
-      return hasChanges ? newAnimationMap : prevAnimationMap;
+    participants.forEach(participant => {
+      if (!participantAnimations.has(participant.id)) {
+        animateParticipantEntry(participant);
+      }
     });
-  }, [participants, peerId]);
+
+    participantAnimations.forEach((_, participantId) => {
+      if (!participants.find(p => p.id === participantId) && !participantId.startsWith('local-screennew-')) {
+        animateParticipantExit(participantId);
+      }
+    });
+  }, [participants, participantAnimations, animateParticipantEntry, animateParticipantExit]);
 
   const renderVideoTile = (tile: VideoTile, index: number, layout: any) => {
     const animatedParticipant = participantAnimations.get(tile.id);
@@ -442,7 +432,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
     return (
       <Animated.View
-        key={`grid-tile-${tile.id}`}
+        key={tile.id}
         style={[
           styles.videoTile,
           {
@@ -534,10 +524,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     return (
       <View style={styles.featuredContainer}>
         {remoteTile ? (
-          <Animated.View 
-            key={`featured-remote-${remoteTile.id}`}
-            style={[styles.remoteVideoContainer, { opacity: fadeAnim }]}
-          >
+          <Animated.View style={[styles.remoteVideoContainer, { opacity: fadeAnim }]}>
             <RTCView
               style={styles.remoteVideo}
               streamURL={remoteTile.stream.toURL()}
@@ -545,10 +532,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
             />
           </Animated.View>
         ) : (
-          <Animated.View 
-            key="featured-waiting-view"
-            style={[styles.waitingContainer, { opacity: fadeAnim }]}
-          >
+          <Animated.View style={[styles.waitingContainer, { opacity: fadeAnim }]}>
             <LinearGradient
               colors={['rgba(139, 92, 246, 0.2)', 'rgba(236, 72, 153, 0.2)']}
               style={styles.waitingGradient}
@@ -573,7 +557,6 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         
         {localTile && (
           <Animated.View
-            key={`featured-local-${localTile.id}`}
             {...panResponder.panHandlers}
             style={[
               styles.localVideoContainer,

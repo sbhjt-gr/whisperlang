@@ -91,40 +91,29 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   }, []);
 
   useEffect(() => {
-    setAnimatedParticipants(prevAnimatedParticipants => {
-      const newAnimatedParticipants = new Map(prevAnimatedParticipants);
-      let hasChanges = false;
-      
-      participants.forEach(participant => {
-        if (!newAnimatedParticipants.has(participant.id)) {
-          const animatedParticipant = createAnimatedParticipant(participant);
-          newAnimatedParticipants.set(participant.id, animatedParticipant);
-          animateParticipantEntry(animatedParticipant);
-          hasChanges = true;
-        }
-      });
-
-      Array.from(prevAnimatedParticipants.keys()).forEach(participantId => {
-        if (!participants.find(p => p.id === participantId)) {
-          const animatedParticipant = prevAnimatedParticipants.get(participantId);
-          if (animatedParticipant) {
-            animateParticipantExit(animatedParticipant);
-            setTimeout(() => {
-              setAnimatedParticipants(current => {
-                const updated = new Map(current);
-                updated.delete(participantId);
-                return updated;
-              });
-            }, 400);
-          }
-          newAnimatedParticipants.delete(participantId);
-          hasChanges = true;
-        }
-      });
-
-      return hasChanges ? newAnimatedParticipants : prevAnimatedParticipants;
+    const newAnimatedParticipants = new Map(animatedParticipants);
+    
+    participants.forEach(participant => {
+      if (!newAnimatedParticipants.has(participant.id)) {
+        const animatedParticipant = createAnimatedParticipant(participant);
+        newAnimatedParticipants.set(participant.id, animatedParticipant);
+        animateParticipantEntry(animatedParticipant);
+      }
     });
-  }, [participants, createAnimatedParticipant, animateParticipantEntry, animateParticipantExit]);
+
+    animatedParticipants.forEach((animatedParticipant, participantId) => {
+      if (!participants.find(p => p.id === participantId)) {
+        animateParticipantExit(animatedParticipant);
+        setTimeout(() => {
+          newAnimatedParticipants.delete(participantId);
+          setAnimatedParticipants(new Map(newAnimatedParticipants));
+        }, 400);
+        return;
+      }
+    });
+
+    setAnimatedParticipants(newAnimatedParticipants);
+  }, [participants, animatedParticipants, createAnimatedParticipant, animateParticipantEntry, animateParticipantExit]);
 
   const getOptimalLayout = (count: number) => {
     if (count <= 2) return { rows: 1, cols: 2 };
@@ -135,10 +124,10 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   };
 
   const localParticipant: User = {
-    id: `local-grid-${currentUser}`,
+    id: `local-grid-new-${currentUser}`,
     username: currentUser,
     name: currentUser,
-    peerId: `local-grid-${currentUser}`,
+    peerId: `local-grid-new-${currentUser}`,
     isLocal: true,
   };
 
