@@ -5,7 +5,6 @@ export type RootStackParamList = {
   VideoCallScreen: { id: string; type?: 'join' | 'create' | 'incoming' | 'outgoing' | 'instant'; joinCode?: string };
   UsersScreen: undefined;
   InstantCallScreen: undefined;
-  MultiParticipantDemo: undefined;
   EnvironmentConfig: undefined;
 };
 

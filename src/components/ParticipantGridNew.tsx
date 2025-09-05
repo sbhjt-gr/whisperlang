@@ -25,7 +25,6 @@ interface ParticipantGridProps {
   localStream: any;
   remoteStreams?: Map<string, any>;
   currentUser: string;
-  onAddParticipant: () => void;
   onRefreshParticipant?: (participantPeerId: string) => void;
 }
 
@@ -34,7 +33,6 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   localStream,
   remoteStreams = new Map(),
   currentUser,
-  onAddParticipant,
   onRefreshParticipant,
 }) => {
   const [animatedParticipants, setAnimatedParticipants] = useState<Map<string, AnimatedParticipant>>(new Map());
@@ -133,56 +131,12 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
 
   const allParticipants = [localParticipant, ...participants];
   const totalParticipants = allParticipants.length;
-  const showAddButton = totalParticipants < 12;
-  const gridCount = showAddButton ? totalParticipants + 1 : totalParticipants;
   
-  const { rows, cols } = getOptimalLayout(gridCount);
+  const { rows, cols } = getOptimalLayout(totalParticipants);
   const participantWidth = (width - 30) / cols;
   const participantHeight = (height * 0.75) / rows;
 
-  const renderParticipantView = (participant: User | null, index: number) => {
-    if (participant === null) {
-      return (
-        <TouchableOpacity
-          key="add-participant"
-          style={[
-            styles.participantContainer,
-            {
-              width: participantWidth,
-              height: participantHeight,
-            },
-          ]}
-          onPress={onAddParticipant}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['rgba(139, 92, 246, 0.2)', 'rgba(236, 72, 153, 0.2)']}
-            style={styles.addButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <View style={styles.addButtonContent}>
-              <Animated.View
-                style={[
-                  styles.addIconContainer,
-                  {
-                    transform: [
-                      {
-                        scale: new Animated.Value(1),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Ionicons name="person-add" size={32} color="#ffffff" />
-              </Animated.View>
-              <Text style={styles.addButtonText}>Add Participant</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
+  const renderParticipantView = (participant: User, index: number) => {
     const isLocal = participant.isLocal;
     const animatedParticipant = animatedParticipants.get(participant.id);
     const hasStream = isLocal ? !!localStream : !!remoteStreams?.get(participant.peerId);
@@ -289,9 +243,6 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
 
   const renderGrid = () => {
     const participantsToRender = [...allParticipants];
-    if (showAddButton) {
-      participantsToRender.push(null as any);
-    }
 
     return (
       <View style={styles.gridContainer}>
@@ -435,38 +386,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 10,
     fontWeight: '500',
-  },
-  addButtonGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderStyle: 'dashed',
-    borderRadius: 14,
-  },
-  addButtonContent: {
-    alignItems: 'center',
-  },
-  addIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(139, 92, 246, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#8b5cf6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });
 

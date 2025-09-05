@@ -110,14 +110,6 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleAddParticipant = () => {
-    Alert.alert(
-      'Share Join Code',
-      'Share the meeting code with others to add participants to this call.',
-      [{ text: 'OK' }]
-    );
-  };
-
   const toggleViewMode = () => {
     setIsMultiParticipantMode(!isMultiParticipantMode);
   };
@@ -289,7 +281,6 @@ export default function InstantCallScreen({ navigation, route }: Props) {
           localStream={localStream}
           remoteStreams={remoteStreams}
           currentUser={currentUser}
-          onAddParticipant={handleAddParticipant}
           onRefreshParticipant={refreshParticipantVideo}
         />
 
@@ -306,21 +297,6 @@ export default function InstantCallScreen({ navigation, route }: Props) {
             >
               <Ionicons name="camera" size={20} color="#ffffff" />
               <Text style={styles.topControlText}>Camera View</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.topControlButton}
-            onPress={handleAddParticipant}
-          >
-            <LinearGradient
-              colors={['rgba(139, 92, 246, 0.9)', 'rgba(236, 72, 153, 0.9)']}
-              style={styles.topControlGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="person-add" size={20} color="#ffffff" />
-              <Text style={styles.topControlText}>Add</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

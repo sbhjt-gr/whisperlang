@@ -11,7 +11,6 @@ import UsersScreen from './src/screens/UsersScreen';
 import { initializeFirebase } from './src/services/FirebaseService';
 import VideoCallScreen from './src/screens/VideoCallScreen';
 import InstantCallScreen from './src/screens/InstantCallScreen';
-import MultiParticipantDemo from './src/screens/MultiParticipantDemo';
 import EnvironmentConfig from './src/screens/EnvironmentConfig';
 import { RootStackParamList } from './src/types/navigation';
 import WebRTCProvider from './src/store/WebRTCProvider';
@@ -77,10 +76,6 @@ export default function App() {
               <Stack.Screen
                 name="InstantCallScreen"
                 component={InstantCallScreen}
-              />
-              <Stack.Screen
-                name="MultiParticipantDemo"
-                component={MultiParticipantDemo}
               />
               <Stack.Screen
                 name="EnvironmentConfig"

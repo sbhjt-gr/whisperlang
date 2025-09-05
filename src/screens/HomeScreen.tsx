@@ -251,22 +251,6 @@ export default function HomeScreen({ navigation, route }: Props) {
             </View>
             
             <View style={styles.actionsGrid}>
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('MultiParticipantDemo')}
-              >
-                <LinearGradient
-                  colors={['#667eea', '#764ba2']}
-                  style={styles.actionGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Ionicons name="grid-outline" size={24} color="#ffffff" />
-                  <Text style={styles.actionTitle}>Multi Demo</Text>
-                  <Text style={styles.actionSubtitle}>Group call preview</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              
               <TouchableOpacity style={styles.actionCard} onPress={LogOut}>
                 <LinearGradient
                   colors={['#ff6b6b', '#ee5a52']}
