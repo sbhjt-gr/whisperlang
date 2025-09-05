@@ -113,8 +113,8 @@ export class WebRTCParticipantManager {
     const otherParticipants = serverParticipants.filter(p => p.peerId !== currentSocketId);
     console.log('Other participants (excluding self):', otherParticipants.length);
     
-    // Update our participants list
-    this.setParticipants(serverParticipants);
+    // Update our participants list - exclude self to prevent duplicate
+    this.setParticipants(otherParticipants);
     
     // Create peer connections with other participants
     otherParticipants.forEach(participant => {

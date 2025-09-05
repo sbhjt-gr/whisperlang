@@ -125,7 +125,17 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         onMeetingJoined: (meetingId: string, participants: User[]) => {
           setCurrentMeetingId(meetingId);
           currentMeetingIdRef.current = meetingId;
-          setParticipants(participants);
+          
+          // Filter out the current user from the participants to prevent duplicates
+          const currentSocketId = socket?.id;
+          const filteredParticipants = participants.filter(p => p.peerId !== currentSocketId);
+          
+          console.log('🔄 onMeetingJoined: Filtering participants');
+          console.log('  Original participants:', participants.length);
+          console.log('  Current socket ID:', currentSocketId);
+          console.log('  Filtered participants:', filteredParticipants.length);
+          
+          setParticipants(filteredParticipants);
         },
         onParticipantsUpdated: (participants: User[]) => {
           setParticipants(participants);

@@ -242,10 +242,9 @@ export default function InstantCallScreen({ navigation, route }: Props) {
     isLocal: true
   };
 
-  // Build participants list without duplication
-  const allParticipants = localParticipantExists 
-    ? [...participants] 
-    : [localParticipant, ...participants];
+  // Build participants list without duplication - filter out any existing local participants
+  const remoteParticipants = participants.filter(p => !p.isLocal && p.peerId !== actualPeerId);
+  const allParticipants = [localParticipant, ...remoteParticipants];
   
   const shouldShowMultiView = allParticipants.length > 0;
 
@@ -255,6 +254,7 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   console.log('Local stream ID:', localStream?.id);
   console.log('Current user for grid:', currentUser);
   console.log('All participants for grid:', allParticipants.length);
+  console.log('Remote participants after filtering:', remoteParticipants.length);
   console.log('Participants from WebRTC context:', participants?.length || 0);
 
   // Multi-participant grid view

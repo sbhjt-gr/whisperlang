@@ -33,6 +33,16 @@ interface Props {
   route: VideoCallScreenRouteProp;
 }
 
+/**
+ * VideoCallScreen Layout Logic:
+ * 
+ * 1 participant (creator waiting): Featured view with waiting screen + floating local video box
+ * 2 participants (1-on-1 call): Featured view - full screen remote video + floating local video box
+ * 3+ participants: Grid view automatically, with toggle option
+ * 
+ * The floating local video box is always shown in bottom-right corner during featured view.
+ * Both meeting creators and joiners see identical layouts for the same participant count.
+ */
 export default function VideoCallScreen({ navigation, route }: Props) {
   const {
     localStream,
@@ -292,19 +302,24 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   }, [route.params.type, route.params.joinCode, localStream, currentMeetingId]);
 
   const renderGridView = () => {
+    // Filter out local participants to prevent duplicates 
+    const remoteParticipants = participants.filter(p => !p.isLocal && p.peerId !== peerId);
+    
     return (
       <ParticipantGrid
-        participants={participants}
+        participants={remoteParticipants}
         localStream={localStream}
         remoteStreams={remoteStreams}
-        currentUser={auth.currentUser?.uid || 'anonymous'}
+        currentUser={peerId || 'anonymous'}
         onRefreshParticipant={refreshParticipantVideo}
       />
     );
   };
 
   const renderFeaturedView = () => {
-    const remoteParticipant = participants.find(p => !p.isLocal);
+    // Filter out local participants to prevent duplicates
+    const remoteParticipants = participants.filter(p => !p.isLocal && p.peerId !== peerId);
+    const remoteParticipant = remoteParticipants.find(p => !p.isLocal);
     const remoteStream = remoteParticipant ? remoteStreams?.get(remoteParticipant.peerId) : null;
     
     return (
@@ -337,9 +352,9 @@ export default function VideoCallScreen({ navigation, route }: Props) {
                   {currentMeetingId ? `Meeting: ${currentMeetingId}` : 'Setting up meeting...'}
                 </Text>
                 <Text style={styles.waitingSubtext}>
-                  {participants?.length > 0 
-                    ? `${participants.length} participant${participants.length === 1 ? '' : 's'} connected`
-                    : 'Waiting for participants...'
+                  {remoteParticipants?.length > 0 
+                    ? `${remoteParticipants.length} participant${remoteParticipants.length === 1 ? '' : 's'} connected`
+                    : 'Waiting for participants to join...'
                   }
                 </Text>
               </View>
@@ -347,6 +362,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           </Animated.View>
         )}
         
+        {/* Always show local video floating box in featured view when local stream is available */}
         {localStream && (
           <Animated.View
             key={`featured-local-stream`}
@@ -398,12 +414,30 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     );
   }
 
-  // Standardize layout: use featured view for 1-on-1 calls, grid view for groups or when toggled
+  // Layout logic: Featured view for 1-on-1 calls (2 total participants), grid view for 3+
   // Ensure creator and joiner see identical layout for the same participant count
   
-  // Count total participants (local + remote)
-  const totalParticipants = participants.length + 1; // +1 for local user
+  // Count total participants (local + remote) - filter out any local participants to prevent duplicates
+  const remoteParticipants = participants.filter(p => !p.isLocal && p.peerId !== peerId);
+  const totalParticipants = remoteParticipants.length + 1; // +1 for local user
+  
+  // Debug logging to track layout decisions
+  if (participants.some(p => p.isLocal)) {
+    console.log('⚠️ VideoCallScreen: Found local participant in participants array');
+    console.log('Original participants:', participants.length);
+    console.log('Remote participants after filtering:', remoteParticipants.length);
+    console.log('Total participants for layout:', totalParticipants);
+  }
+  
+  // Featured view for 2 participants (1-on-1), grid view for 3+ or when manually toggled
   const shouldUseFeaturedViewForCall = totalParticipants <= 2 && !isGridMode;
+  
+  // Debug layout decision
+  console.log('📱 VideoCallScreen Layout Decision:');
+  console.log('  Total participants:', totalParticipants);
+  console.log('  Remote participants:', remoteParticipants.length);
+  console.log('  isGridMode:', isGridMode);
+  console.log('  Using featured view:', shouldUseFeaturedViewForCall);
 
   return (
     <TouchableOpacity
@@ -445,23 +479,25 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         ]}
         pointerEvents={controlsVisible ? 'auto' : 'none'}
       >
-        <TouchableOpacity style={styles.topControlButton} onPress={toggleViewMode}>
-          <LinearGradient
-            colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
-            style={styles.topControlGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Ionicons 
-              name={shouldUseFeaturedViewForCall ? "grid" : "person"} 
-              size={20} 
-              color="#ffffff" 
-            />
-            <Text style={styles.topControlText}>
-              {shouldUseFeaturedViewForCall ? "Grid" : "Focus"}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {totalParticipants >= 2 && (
+          <TouchableOpacity style={styles.topControlButton} onPress={toggleViewMode}>
+            <LinearGradient
+              colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.6)']}
+              style={styles.topControlGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons 
+                name={shouldUseFeaturedViewForCall ? "grid" : "person"} 
+                size={20} 
+                color="#ffffff" 
+              />
+              <Text style={styles.topControlText}>
+                {shouldUseFeaturedViewForCall ? "Grid" : "Focus"}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
         
         <View style={styles.meetingInfo}>
           <LinearGradient
@@ -474,7 +510,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
               {currentMeetingId ? `ID: ${currentMeetingId}` : 'Connecting...'}
             </Text>
             <Text style={styles.participantCountText}>
-              {participants.length + 1} participant{participants.length === 0 ? '' : 's'}
+              {totalParticipants} participant{totalParticipants === 1 ? '' : 's'}
             </Text>
           </LinearGradient>
         </View>
