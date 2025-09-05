@@ -114,7 +114,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         
         if (!localStream && route.params.type !== 'instant') {
           console.log('Starting WebRTC initialization...');
-          socketConnection = await initialize(username);
+          const initResult = await initialize(username);
+          socketConnection = initResult.socket || initResult; // Handle both old and new format
           console.log('WebRTC initialization completed');
         } else {
           console.log('WebRTC already initialized or instant call, skipping initialization');
@@ -155,6 +156,21 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
     initializeCall();
   }, []);
+
+  // Debug participants and streams (moved to useEffect to prevent render warnings)
+  useEffect(() => {
+    console.log('🎭 PARTICIPANT GRID PREPARATION:');
+    console.log('   Local participant exists:', localParticipantExists);
+    console.log('   Actual peer ID:', actualPeerId);
+    console.log('   Participants from context:', participants.length, participants.map(p => ({
+      username: p.username,
+      peerId: p.peerId,
+      id: p.id,
+      isLocal: p.isLocal
+    })));
+    console.log('   Remote streams available:', remoteStreams?.size || 0);
+    console.log('   Remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
+  }, [participants, remoteStreams, localParticipantExists, actualPeerId]);
 
   const initializeMockParticipants = () => {
     const mockUsers: User[] = [

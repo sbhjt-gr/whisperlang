@@ -30,21 +30,23 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   onAddParticipant,
   onRefreshParticipant,
 }) => {
-  // Debug logging for props
-  console.log('=== PARTICIPANT GRID PROPS DEBUG ===');
-  console.log('Participants count:', participants.length);
-  console.log('Local stream available:', !!localStream);
-  console.log('Local stream ID:', localStream?.id);
-  console.log('Current user:', currentUser);
-  console.log('Remote streams available:', !!remoteStreams);
-  console.log('Remote streams count:', remoteStreams?.size || 0);
-  console.log('Remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
-  console.log('Participants details:', participants.map(p => ({
-    username: p.username,
-    peerId: p.peerId,
-    id: p.id,
-    isLocal: p.isLocal
-  })));
+  // Debug logging moved to useEffect to prevent render warnings
+  useEffect(() => {
+    console.log('=== PARTICIPANT GRID PROPS DEBUG ===');
+    console.log('Participants count:', participants.length);
+    console.log('Local stream available:', !!localStream);
+    console.log('Local stream ID:', localStream?.id);
+    console.log('Current user:', currentUser);
+    console.log('Remote streams available:', !!remoteStreams);
+    console.log('Remote streams count:', remoteStreams?.size || 0);
+    console.log('Remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
+    console.log('Participants details:', participants.map(p => ({
+      username: p.username,
+      peerId: p.peerId,
+      id: p.id,
+      isLocal: p.isLocal
+    })));
+  }, [participants, localStream, currentUser, remoteStreams]);
   
   // Monitor stream changes
   useEffect(() => {
@@ -153,6 +155,9 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                   console.log('=== REMOTE PARTICIPANT RENDER ===');
                   console.log('Participant:', participant?.username, participant?.peerId);
                   console.log('Remote stream available:', !!remoteStream);
+                  console.log('Available remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
+                  console.log('Looking for peer ID:', participant?.peerId);
+                  console.log('Exact match found:', remoteStreams?.has(participant?.peerId || ''));
                   
                   return remoteStream ? (
                     <RTCView
@@ -172,6 +177,8 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                       >
                         <View style={styles.avatarContainer}>
                           <Ionicons name="person" size={40} color="#ffffff" />
+                          <Text style={styles.debugText}>No Video</Text>
+                          <Text style={styles.debugText}>{participant?.peerId?.slice(-4)}</Text>
                         </View>
                       </LinearGradient>
                     </View>

@@ -74,17 +74,20 @@ export default function VideoCallScreen({ navigation, route }: Props) {
   const [isMultiParticipantMode, setIsMultiParticipantMode] = useState(false);
   const [mockParticipants, setMockParticipants] = useState<User[]>([]);
   const initializationAttempted = useRef(false);
+  const joinAttempted = useRef(false);
 
   useLayoutEffect(() => {
     console.log('=== VIDEO CALL SCREEN LAYOUT EFFECT ===');
-    if(!route.params.type) {
-        console.log('No type - creating new meeting');
-    } else if(route.params.type === 'join' && route.params.joinCode) {
-        console.log('Join type detected - will join with code:', route.params.joinCode);
-    } else {
-        console.log('Other type detected:', route.params.type);
+    console.log('Route params type:', route.params.type);
+    console.log('Join code:', route.params.joinCode);
+    console.log('Join attempted:', joinAttempted.current);
+    
+    // Set join attempted flag early to prevent race condition with useEffect
+    if (route.params.type === 'join' && route.params.joinCode && !joinAttempted.current) {
+        console.log('🔒 Setting join attempted flag to prevent race condition');
+        joinAttempted.current = true;
     }
-  });
+  }, [route.params.type, route.params.joinCode]);
 
   useEffect(() => {
     console.log('=== VIDEO CALL SCREEN MAIN EFFECT ===');
@@ -104,6 +107,9 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     console.log('=== WEBRTC INITIALIZATION EFFECT ===');
+    console.log('Route params:', route.params);
+    console.log('Local stream exists:', !!localStream);
+    console.log('Current meeting ID:', currentMeetingId);
     
     // Prevent multiple initialization attempts
     if (initializationAttempted.current) {
@@ -119,42 +125,102 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       try {
         let socketConnection = null;
         
-        // Only initialize if we don't have local stream yet (avoid reinitializing)
-        // Skip initialization for instant calls that already have a socket
-        if (!localStream && route.params.type !== 'instant') {
-          console.log('Starting WebRTC initialization...');
-          socketConnection = await initialize(username);
+        // Only initialize if we don't have local stream OR if we're trying to join but don't have a meeting ID
+        const needsInitialization = !localStream || (route.params.type === 'join' && !currentMeetingId);
+        
+        if (needsInitialization) {
+          console.log('Missing local stream or socket, initializing WebRTC...');
+          console.log('Local stream exists:', !!localStream);
+          console.log('Current meeting ID:', currentMeetingId);
+          console.log('Call type:', route.params.type);
+          
+          const initResult = await initialize(username);
+          socketConnection = initResult.socket || initResult; // Handle both old and new format
+          
           console.log('WebRTC initialization completed');
+          console.log('Socket:', !!socketConnection);
+          console.log('Local stream from init:', !!initResult.localStream);
+          
+          // The stream should now be available in the context, but we can also use the returned stream
+          if (!localStream && !initResult.localStream) {
+            throw new Error('Failed to obtain local media stream after initialization');
+          }
+          
+          console.log('✅ WebRTC initialization successful');
         } else {
-          console.log('WebRTC already initialized or instant call, skipping initialization');
+          console.log('✅ Local stream already available, skipping initialization');
+          console.log('Local stream ID:', localStream.id);
+          console.log('Current meeting ID:', currentMeetingId);
         }
         
-        if (route.params.type === 'join' && route.params.joinCode) {
-          console.log('Joining meeting with code:', route.params.joinCode);
-          
-          // Add a small delay to ensure socket state is updated
-          if (socketConnection) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+        // Handle different call types
+        if (route.params.type === 'join') {
+          // Check if we already attempted to join to prevent race condition
+          if (joinAttempted.current) {
+            console.log('🔒 Join already attempted, skipping duplicate join call');
+            // Still need to check if we have a current meeting ID, if not, retry
+            if (!currentMeetingId) {
+              console.log('❌ No current meeting ID despite join attempt, will retry...');
+              joinAttempted.current = false; // Reset flag to allow retry
+            } else {
+              console.log('✅ Join already completed with meeting ID:', currentMeetingId);
+              return; // Skip the rest of the join logic
+            }
           }
           
-          const joined = await joinMeeting(route.params.joinCode, socketConnection);
+          // Set flag to prevent duplicate attempts
+          joinAttempted.current = true;
+          
+          // For join type, the meeting ID is in route.params.id
+          const meetingId = route.params.joinCode || route.params.id;
+          console.log('🔗 Joining meeting with code:', meetingId);
+          
+          if (!meetingId) {
+            Alert.alert('Error', 'No meeting ID provided to join.');
+            navigation.goBack();
+            return;
+          }
+          
+          const joined = await joinMeeting(meetingId, socketConnection);
+          console.log('=== JOIN ATTEMPT DEBUG ===');
+          console.log('Meeting ID being joined:', meetingId);
+          console.log('Socket connection ID:', socketConnection?.id);
+          console.log('Socket connected:', socketConnection?.connected);
+          
           if (!joined) {
             Alert.alert('Error', 'Could not join meeting. Please check the meeting ID and try again.');
+            joinAttempted.current = false; // Reset on failure
             navigation.goBack();
+            return;
           }
-        } else if (route.params.type === 'instant' && route.params.joinCode) {
-          console.log('Entering instant call meeting:', route.params.joinCode);
-          // For instant calls, the meeting was already created, just set the current meeting ID
-          // setCurrentMeetingId(route.params.joinCode); // This might be managed by the context
-        } else if (!route.params.type) {
+          console.log('✅ Successfully joined meeting:', meetingId);
+          
+        } else if (route.params.type === 'instant') {
+          // For instant calls, the meeting ID might be in joinCode or id
+          const meetingId = route.params.joinCode || route.params.id;
+          console.log('Entering instant call meeting:', meetingId);
+          
+          if (meetingId) {
+            try {
+              const joined = await joinMeeting(meetingId, socketConnection);
+              if (!joined) {
+                console.log('Could not join instant meeting, creating new one');
+                const newMeetingId = await createMeeting();
+                console.log('Created new instant meeting:', newMeetingId);
+              }
+            } catch (error) {
+              console.log('Error joining instant meeting, creating new one:', error);
+              const newMeetingId = await createMeeting();
+              console.log('Created new instant meeting:', newMeetingId);
+            }
+          }
+          
+        } else if (!route.params.type || route.params.type === 'create') {
           console.log('Creating new meeting...');
           
-          // Add a small delay to ensure local stream state is updated
-          if (socketConnection) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-          
           const meetingId = await createMeeting();
+          console.log('Meeting created with ID:', meetingId);
+          
           Alert.alert(
             'Meeting Created',
             `Your meeting ID is: ${meetingId}\n\nShare this ID with participants to join the meeting.`,
@@ -167,12 +233,25 @@ export default function VideoCallScreen({ navigation, route }: Props) {
         
       } catch (error) {
         console.error('Failed to initialize call:', error);
-        Alert.alert('Connection Error', 'Failed to initialize video call. Please check your camera and microphone permissions.');
+        initializationAttempted.current = false; // Allow retry
+        
+        Alert.alert(
+          'Connection Error', 
+          `Failed to initialize video call: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your camera and microphone permissions and try again.`,
+          [
+            { text: 'Cancel', onPress: () => navigation.goBack() },
+            { text: 'Retry', onPress: () => {
+              initializationAttempted.current = false;
+              // Force re-render to trigger effect again
+              setMockParticipants([]);
+            }}
+          ]
+        );
       }
     };
 
     initializeCall();
-  }, []); // Run only once, not when route.params changes
+  }, []); // Run only once on mount
 
   const initializeMockParticipants = () => {
     const mockUsers: User[] = [

@@ -83,7 +83,8 @@ export default function InstantCallScreen({ navigation, route }: Props) {
       
       try {
         console.log('Initializing WebRTC...');
-        const socket = await initialize(username);
+        const initResult = await initialize(username);
+        const socket = initResult.socket || initResult; // Handle both old and new format
         console.log('WebRTC initialization completed for instant call');
         
         console.log('Creating meeting...');
@@ -179,12 +180,26 @@ export default function InstantCallScreen({ navigation, route }: Props) {
   };
 
   const startCall = () => {
+    console.log('=== START CALL DEBUG ===');
+    console.log('currentMeetingId:', currentMeetingId);
+    console.log('joinCode state:', joinCode);
+    console.log('activeCall:', !!activeCall);
+    console.log('remoteUser:', !!remoteUser);
+    
     if (activeCall || remoteUser || currentMeetingId) {
       setIsWaitingForUsers(false);
-      navigation.navigate('VideoCallScreen', {
-        id: currentMeetingId || joinCode,
+      const meetingIdToUse = currentMeetingId || joinCode;
+      console.log('Meeting ID to navigate with:', meetingIdToUse);
+      console.log('Navigation params will be:', {
+        id: meetingIdToUse,
         type: 'instant',
-        joinCode: currentMeetingId || joinCode
+        joinCode: meetingIdToUse
+      });
+      
+      navigation.navigate('VideoCallScreen', {
+        id: meetingIdToUse,
+        type: 'instant',
+        joinCode: meetingIdToUse
       });
     } else {
       Alert.alert('No users connected', 'Waiting for someone to join with your code.');

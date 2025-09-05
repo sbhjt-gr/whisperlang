@@ -54,12 +54,27 @@ export default function CallsScreen({ navigation }: Props) {
   const meet = (): void => {
     if (id.trim()) {
       const rawInput = id.trim();
+      console.log('=== JOIN CALL INPUT DEBUG ===');
+      console.log('Raw input:', rawInput);
+      
+      // Check if it's purely numeric (old legacy support)
+      const isOnlyNumeric = /^[0-9]+$/.test(rawInput);
       const numericId = parseInt(rawInput);
       
-      if (!isNaN(numericId)) {
-        navigation.navigate('VideoCallScreen', {id: numericId.toString(), type: 'join'});
+      console.log('Is only numeric:', isOnlyNumeric);
+      console.log('Parsed numeric value:', numericId);
+      
+      if (isOnlyNumeric && !isNaN(numericId)) {
+        console.log('Treating as legacy numeric ID');
+        navigation.navigate('VideoCallScreen', {
+          id: numericId.toString(), 
+          type: 'join',
+          joinCode: numericId.toString()
+        });
       } else {
+        // Treat as meeting code (alphanumeric)
         const cleanCode = rawInput.toUpperCase();
+        console.log('Treating as meeting code:', cleanCode);
         
         if (/^[A-Z0-9]{4,8}$/.test(cleanCode)) {
           navigation.navigate('VideoCallScreen', {

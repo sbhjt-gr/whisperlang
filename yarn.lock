@@ -7609,6 +7609,13 @@ react-native-callkeep@^4.3.9:
   resolved "https://registry.yarnpkg.com/react-native-callkeep/-/react-native-callkeep-4.3.16.tgz#56291796984b896113ef00f8b67ae3fe177baf70"
   integrity sha512-aIxn02T5zW4jNPyzRdFGTWv6xD3Vy/1AkBMB6iYvWZEHWnfmgNGF0hELqg03Vbc2BNUhfqpu17aIydos+5Hurg==
 
+react-native-dotenv@^3.4.11:
+  version "3.4.11"
+  resolved "https://registry.yarnpkg.com/react-native-dotenv/-/react-native-dotenv-3.4.11.tgz#2e6c4eabd55d5f1bf109b3dd9141dadf9c55cdd4"
+  integrity sha512-6vnIE+WHABSeHCaYP6l3O1BOEhWxKH6nHAdV7n/wKn/sciZ64zPPp2NUdEUf1m7g4uuzlLbjgr+6uDt89q2DOg==
+  dependencies:
+    dotenv "^16.4.5"
+
 react-native-edge-to-edge@1.6.0:
   version "1.6.0"
   resolved "https://registry.yarnpkg.com/react-native-edge-to-edge/-/react-native-edge-to-edge-1.6.0.tgz#2ba63b941704a7f713e298185c26cde4d9e4b973"

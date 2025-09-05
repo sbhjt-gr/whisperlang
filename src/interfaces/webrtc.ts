@@ -8,6 +8,7 @@ export interface User {
   phoneNumbers?: { number?: string; }[];
   isLocal?: boolean;
   hasActiveConnection?: boolean;
+  hasActiveStream?: boolean;
   isRefreshing?: boolean;
 }
 

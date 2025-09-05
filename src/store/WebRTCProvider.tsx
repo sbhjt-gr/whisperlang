@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {Alert} from 'react-native';
 import {
   mediaDevices,
@@ -113,9 +113,46 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const [peerConnections, setPeerConnections] = useState<Map<string, RTCPeerConnection>>(new Map());
   const [participants, setParticipants] = useState<User[]>([]);
 
-  // Use refs for immediate access to current values
+  // Use refs for immediate access to current values and avoid race conditions
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerIdRef = useRef<string>('');
+  const socketRef = useRef<any>(null);
+  const currentMeetingIdRef = useRef<string | null>(null);
+
+  // Cleanup stale remote streams when participants change - debounced to prevent race conditions
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setRemoteStreams(prev => {
+        const validPeerIds = participants.map(p => p.peerId);
+        const newMap = new Map();
+        
+        // Only keep streams for current participants
+        prev.forEach((stream, peerId) => {
+          if (validPeerIds.includes(peerId)) {
+            newMap.set(peerId, stream);
+          } else {
+            console.log('🗑️ Removing stale remote stream for peer:', peerId);
+          }
+        });
+        
+        if (newMap.size !== prev.size) {
+          console.log('🧹 Cleaned up remote streams:', prev.size, '→', newMap.size);
+          console.log('Valid peer IDs:', validPeerIds);
+          console.log('Remaining stream keys:', Array.from(newMap.keys()));
+        }
+        
+        return newMap;
+      });
+    }, 300); // 300ms debounce to allow participant state to stabilize
+    
+    return () => clearTimeout(timeoutId);
+  }, [participants]);
+
+  // Keep meetingId ref in sync with state
+  useEffect(() => {
+    currentMeetingIdRef.current = currentMeetingId;
+    console.log('📋 Meeting ID ref updated:', currentMeetingId);
+  }, [currentMeetingId]);
 
     const connectWithFallback = async (urls: string[], username: string): Promise<any> => {
     console.log(`Starting WebRTC connection in ${NODE_ENV || 'production'} mode`);
@@ -201,6 +238,12 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const initialize = async (currentUsername?: string): Promise<any> => {
     console.log('=== WEBRTC INITIALIZE START ===');
     
+    // Prevent multiple simultaneous initializations
+    if (socket && socket.connected && localStream) {
+      console.log('⚠️ Already initialized - returning existing connection');
+      return { socket, localStream };
+    }
+    
     const finalUsername = currentUsername || username || 'User';
     console.log('Using username:', finalUsername);
     setUsername(finalUsername);
@@ -236,6 +279,7 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       setSocket(io);
       setPeerId(io.id || '');
       peerIdRef.current = io.id || '';
+      socketRef.current = io;
       console.log('Socket and peer ID state will be updated to:', io.id);
       
       // Store these on the socket for immediate access
@@ -249,7 +293,8 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       console.log('Socket state set successfully:', !!io);
       console.log('Socket connected:', io.connected);
       
-      return io;
+      // Return both socket and stream for immediate access
+      return { socket: io, localStream: newStream };
     } catch (error) {
       console.error('Failed to initialize WebRTC:', error);
       throw error;
@@ -275,59 +320,48 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       });
       console.log('Current meeting ID:', currentMeetingId);
       console.log('Local stream exists:', !!localStream);
-
-      // Add user to participants list immediately
-      setParticipants(prev => {
-        const exists = prev.find(p => p.peerId === user.peerId);
-        if (!exists) {
-          console.log('Adding user to participants list:', user.username);
-          return [...prev, user];
-        }
-        console.log('User already in participants list:', user.username);
-        return prev;
-      });
-
-      // Create peer connection for the new user (we are the initiator since we were here first)
-      // Use a more reliable check for peer IDs
-      const currentPeerId = peerIdRef.current || peerId || io.id;
-      const shouldCreateConnection =
-        user.peerId &&
-        user.peerId !== currentPeerId &&
-        (localStreamRef.current || localStream);
-
-      console.log('Peer connection decision:', {
-        userPeerId: user.peerId,
-        currentPeerId: currentPeerId,
-        hasLocalStream: !!(localStreamRef.current || localStream),
-        shouldCreateConnection: shouldCreateConnection
-      });
-
-      if (shouldCreateConnection) {
-        console.log('Creating peer connection for new user (we initiate):', user.username);
-        // Use a shorter timeout to ensure state is settled
-        setTimeout(() => {
-          // Double-check conditions before creating connection
-          const finalPeerId = peerIdRef.current || peerId || io.id;
-          const finalStream = localStreamRef.current || localStream;
-
-          if (finalStream && user.peerId && user.peerId !== finalPeerId) {
-            console.log('Final check passed, creating peer connection');
-            createPeerConnection(user, true);
-          } else {
-            console.log('Final check failed, skipping peer connection:', {
-              hasStream: !!finalStream,
-              userPeerId: user.peerId,
-              finalPeerId: finalPeerId
-            });
-          }
-        }, 500); // Reduced timeout for faster connection
-      } else {
-        console.log('Not creating peer connection:', {
-          userPeerId: user.peerId,
-          currentPeerId: currentPeerId,
-          hasLocalStream: !!(localStreamRef.current || localStream)
-        });
+      
+      // Ignore events for our own connection
+      if (user.peerId === (peerIdRef.current || peerId || io.id)) {
+        console.log('⏭️ Ignoring user-joined event for self:', user.peerId);
+        return;
       }
+
+      // Add user to participants list immediately, preventing duplicates
+      setParticipants(prev => {
+        // Check if user already exists by peerId (most reliable identifier)
+        const existsByPeerId = prev.find(p => p.peerId === user.peerId);
+        if (existsByPeerId) {
+          console.log('👥 User already in participants list (by peerId):', user.username, user.peerId);
+          return prev; // No change needed
+        }
+        
+        // Check if user exists by ID as backup
+        const existsById = prev.find(p => p.id === user.id);
+        if (existsById) {
+          console.log('👥 User already in participants list (by id):', user.username, user.id);
+          return prev; // No change needed
+        }
+        
+        // Remove any existing participants with the same username but different peer ID (connection refresh)
+        const filteredParticipants = prev.filter(p => p.username !== user.username);
+        const removedCount = prev.length - filteredParticipants.length;
+        
+        console.log('👥 Adding new user to participants list:', user.username);
+        console.log('   User peer ID:', user.peerId);
+        console.log('   User ID:', user.id);
+        console.log('   Removed old entries for same username:', removedCount);
+        console.log('   Current participants count after cleanup:', filteredParticipants.length);
+        
+        return [...filteredParticipants, user];
+      });
+
+      // DO NOT create peer connection here - let the joiner initiate
+      // The user who joins should create connections to existing participants
+      // Existing participants just wait for offers from the joiner
+      console.log('\n✅ USER ADDED TO PARTICIPANTS LIST');
+      console.log('   Waiting for peer connection from joiner:', user.username);
+      console.log('   Total participants will be:', participants.length + 1);
     });
 
     io.on('user-left', (user: User) => {
@@ -364,15 +398,27 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     io.on('offer', async (data: any) => {
       const { offer, fromPeerId, fromUsername, meetingId } = data;
-      console.log('=== OFFER RECEIVED ===');
-      console.log('Offer received from:', fromUsername, fromPeerId);
-      console.log('Current meeting ID:', meetingId);
-      console.log('My peer ID:', peerId);
+      console.log('🎯 CLIENT: === OFFER RECEIVED ===');
+      console.log('📨 Offer received from:', fromUsername, fromPeerId);
+      console.log('🏢 Offer meeting ID:', meetingId);
+      console.log('🔍 Current meeting ID state:', currentMeetingId);
+      console.log('📋 Current meeting ID ref:', currentMeetingIdRef.current);
+      console.log('🎪 My peer ID:', peerId);
+      console.log('🔍 My socket ID:', io?.id);
+      console.log('📊 Full offer data:', data);
 
-      if (meetingId !== currentMeetingId) {
-        console.warn('Received offer for different meeting, ignoring');
+      // Use the same fallback logic as offer sending
+      const finalCurrentMeetingId = currentMeetingId || currentMeetingIdRef.current;
+      console.log('✅ Final current meeting ID:', finalCurrentMeetingId);
+
+      if (meetingId !== finalCurrentMeetingId) {
+        console.warn('❌ Received offer for different meeting, ignoring');
+        console.warn('   Offer meeting:', meetingId);
+        console.warn('   Current meeting:', finalCurrentMeetingId);
         return;
       }
+      
+      console.log('✅ Offer meeting ID matches, processing...');
 
       const user = {
         peerId: fromPeerId,
@@ -380,12 +426,17 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         id: fromPeerId
       };
 
-      // Ensure we have the user in our participants list
+      // Ensure we have the user in our participants list, removing any old entries
       setParticipants(prev => {
+        // Remove any existing participants with the same username but different peer ID
+        const filteredParticipants = prev.filter(p => p.username !== fromUsername);
+        
         const exists = prev.find(p => p.peerId === fromPeerId);
         if (!exists) {
-          console.log('Adding user to participants list from offer:', fromUsername);
-          return [...prev, user];
+          console.log('👥 Adding user to participants list from offer:', fromUsername);
+          console.log('   Peer ID:', fromPeerId);
+          console.log('   Removed old entries for same user:', prev.length - filteredParticipants.length);
+          return [...filteredParticipants, user];
         }
         return prev;
       });
@@ -398,62 +449,147 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       }
 
       try {
-        console.log('Setting remote description for offer');
-        await new Promise((resolve, reject) => {
-          (pc as any).setRemoteDescription(new RTCSessionDescription(offer), () => {
-            console.log('Remote description set for offer from:', fromUsername);
-            resolve(true);
-          }, (error: any) => {
-            console.error('Error setting remote description:', error);
-            reject(error);
+        console.log('\n📝 PROCESSING RECEIVED OFFER');
+        console.log('   From:', fromUsername, fromPeerId);
+        console.log('   Connection state:', pc.connectionState);
+        console.log('   Signaling state:', pc.signalingState);
+        console.log('   Offer SDP type:', offer.type);
+        console.log('   Offer contains video:', offer.sdp?.includes('m=video'));
+        console.log('   Offer contains audio:', offer.sdp?.includes('m=audio'));
+        
+        // Check signaling state before setting remote description
+        if (pc.signalingState === 'stable' || pc.signalingState === 'have-remote-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          console.log('\n✅ REMOTE DESCRIPTION SET');
+          console.log('   Signaling state after:', pc.signalingState);
+        } else if (pc.signalingState === 'have-local-offer') {
+          console.warn('\n⚠️ OFFER COLLISION DETECTED');
+          console.warn('   Our state:', pc.signalingState);
+          console.warn('   Need to handle glare condition');
+          
+          // Handle offer collision using peer ID comparison
+          const shouldBackOff = peerId < fromPeerId; // Lower ID backs off
+          if (shouldBackOff) {
+            console.warn('   🔄 BACKING OFF - Restarting as answerer');
+            console.warn('   🔄 Resetting connection to handle collision');
+            
+            // Reset the peer connection by setting signaling state back to stable
+            // This is done by calling setLocalDescription with a null offer
+            try {
+              await pc.setLocalDescription();
+              console.log('   ✅ Local description cleared, state:', pc.signalingState);
+            } catch (error: any) {
+              console.warn('   ⚠️ Could not clear local description:', error.message);
+              // Try alternative: create a new rollback
+              await pc.setLocalDescription({type: 'rollback'} as any);
+              console.log('   ✅ Rollback applied, state:', pc.signalingState);
+            }
+            
+            // Now set the remote offer
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            console.log('   ✅ REMOTE DESCRIPTION SET AFTER COLLISION RESOLUTION');
+            console.log('   📊 New signaling state:', pc.signalingState);
+          } else {
+            console.warn('   ⚡ IGNORING OFFER - Remote should back off');
+            console.warn('   📊 Our peer ID:', peerId, 'Their peer ID:', fromPeerId);
+            return; // Exit early
+          }
+        } else {
+          console.warn('\n⚠️ CANNOT PROCESS OFFER - Invalid state:', pc.signalingState);
+          return; // Exit early
+        }
+
+        // Check senders before creating answer  
+        const senders = pc.getSenders();
+        console.log('\n📊 SENDERS BEFORE ANSWER:');
+        console.log('   Total senders:', senders.length);
+        senders.forEach((sender, index) => {
+          console.log(`   Sender ${index + 1}:`, {
+            hasTrack: !!sender.track,
+            kind: sender.track?.kind,
+            enabled: sender.track?.enabled
           });
         });
 
-        console.log('Creating answer for offer from:', fromUsername);
-        await new Promise((resolve, reject) => {
-          (pc as any).createAnswer({}, (answer: any) => {
-            console.log('Answer created, setting local description');
-            (pc as any).setLocalDescription(answer, () => {
-              console.log('Local description set for answer, sending to:', fromUsername);
+        // Check if we can create an answer (should be in have-remote-offer state)
+        if (pc.signalingState === 'have-remote-offer') {
+          console.log('\n📝 CREATING ANSWER');
+          const answer = await pc.createAnswer();
+          console.log('\n✅ ANSWER CREATED');
+          console.log('   SDP type:', answer.type);
+          console.log('   Answer contains video:', answer.sdp?.includes('m=video'));
+          console.log('   Answer contains audio:', answer.sdp?.includes('m=audio'));
+          
+          await pc.setLocalDescription(answer);
+          console.log('\n💾 LOCAL DESCRIPTION SET FOR ANSWER');
+          console.log('   Signaling state after:', pc.signalingState);
 
-              io.emit('answer', {
-                answer: answer,
-                targetPeerId: fromPeerId,
-                meetingId: meetingId
-              });
-              console.log('Answer sent to:', fromUsername, fromPeerId);
-              resolve(true);
-            }, (error: any) => {
-              console.error('Error setting local description for answer:', error);
-              reject(error);
-            });
-          }, (error: any) => {
-            console.error('Error creating answer:', error);
-            reject(error);
+          io.emit('answer', {
+            answer: answer,
+            targetPeerId: fromPeerId,
+            meetingId: meetingId
           });
-        });
+          console.log('\n📤 ANSWER SENT TO:', fromUsername, fromPeerId);
+        } else {
+          console.warn('\n⚠️ CANNOT CREATE ANSWER - Wrong signaling state');
+          console.warn('   Expected: have-remote-offer');
+          console.warn('   Actual:', pc.signalingState);
+          console.warn('   This might be an offer collision (glare condition)');
+          
+          // Handle offer collision - peer with higher ID backs off
+          const shouldBackOff = fromPeerId > peerId;
+          if (shouldBackOff) {
+            console.warn('   🔄 BACKING OFF - Our ID is lower, restarting as answer side');
+            // Reset and wait for their offer
+          } else {
+            console.warn('   ⚡ IGNORING OFFER - Their ID is lower, they should back off');
+          }
+        }
       } catch (error) {
-        console.error('Error handling offer from:', fromUsername, error);
+        console.error('\n❌ ERROR HANDLING OFFER:', fromUsername, error);
+        console.error('   Connection state:', pc.connectionState);
+        console.error('   Signaling state:', pc.signalingState);
       }
     });
 
     io.on('answer', async (data: any) => {
       const { answer, fromPeerId } = data;
-      console.log('=== ANSWER RECEIVED ===');
-      console.log('Answer received from peer:', fromPeerId);
+      console.log('\n📝 === ANSWER RECEIVED ===');
+      console.log('   From peer:', fromPeerId);
+      console.log('   Answer SDP type:', answer.type);
+      console.log('   Answer contains video:', answer.sdp?.includes('m=video'));
+      console.log('   Answer contains audio:', answer.sdp?.includes('m=audio'));
 
       setPeerConnections(prevConnections => {
         const pc = prevConnections.get(fromPeerId);
         if (pc) {
-          console.log('Setting remote description for answer from:', fromPeerId);
-          (pc as any).setRemoteDescription(new RTCSessionDescription(answer), () => {
-            console.log('Remote description set successfully for:', fromPeerId);
-          }, (error: any) => {
-            console.error('Error setting remote description for:', fromPeerId, error);
-          });
+          console.log('\n💾 SETTING REMOTE DESCRIPTION FOR ANSWER');
+          console.log('   Connection state:', pc.connectionState);
+          console.log('   Signaling state:', pc.signalingState);
+          console.log('   ICE connection state:', pc.iceConnectionState);
+          
+          // Check if we're in the correct state to accept an answer
+          if (pc.signalingState === 'have-local-offer') {
+            pc.setRemoteDescription(new RTCSessionDescription(answer))
+              .then(() => {
+                console.log('\n✅ ANSWER REMOTE DESCRIPTION SET');
+                console.log('   Signaling state after:', pc.signalingState);
+                console.log('   Connection state:', pc.connectionState);
+                console.log('   ICE connection state:', pc.iceConnectionState);
+              })
+              .catch((error: any) => {
+                console.error('\n❌ ERROR SETTING ANSWER REMOTE DESCRIPTION:', fromPeerId, error);
+              });
+          } else {
+            console.warn('\n⚠️ IGNORING ANSWER - Wrong signaling state');
+            console.warn('   Expected: have-local-offer');
+            console.warn('   Actual:', pc.signalingState);
+            console.warn('   This might be a duplicate or race condition');
+          }
         } else {
-          console.error('No peer connection found for answer from:', fromPeerId);
-          console.log('Available connections:', Array.from(prevConnections.keys()));
+          console.error('\n❌ NO PEER CONNECTION FOUND FOR ANSWER');
+          console.error('   From peer:', fromPeerId);
+          console.error('   Available connections:', Array.from(prevConnections.keys()));
         }
         return prevConnections;
       });
@@ -461,25 +597,36 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     io.on('ice-candidate', async (data: any) => {
       const { candidate, fromPeerId } = data;
-      console.log('=== ICE CANDIDATE RECEIVED ===');
-      console.log('ICE candidate from peer:', fromPeerId);
+      console.log('\n🧊 === ICE CANDIDATE RECEIVED ===');
+      console.log('   From peer:', fromPeerId);
+      
+      if (candidate) {
+        console.log('   Candidate type:', candidate.type);
+        console.log('   Candidate protocol:', candidate.protocol);
+      }
 
       setPeerConnections(prevConnections => {
         const pc = prevConnections.get(fromPeerId);
         if (pc && candidate) {
-          console.log('Adding ICE candidate for:', fromPeerId);
+          console.log('\n🔄 ADDING ICE CANDIDATE');
+          console.log('   Connection state:', pc.connectionState);
+          console.log('   ICE connection state:', pc.iceConnectionState);
+          console.log('   ICE gathering state:', pc.iceGatheringState);
+          
           pc.addIceCandidate(new RTCIceCandidate(candidate))
             .then(() => {
-              console.log('ICE candidate added successfully for:', fromPeerId);
+              console.log('\n✅ ICE CANDIDATE ADDED SUCCESSFULLY');
+              console.log('   ICE connection state after:', pc.iceConnectionState);
             })
             .catch(error => {
-              console.error('Error adding ICE candidate for:', fromPeerId, error);
+              console.error('\n❌ ERROR ADDING ICE CANDIDATE:', fromPeerId, error);
             });
         } else if (!pc) {
-          console.error('No peer connection found for ICE candidate from:', fromPeerId);
-          console.log('Available connections:', Array.from(prevConnections.keys()));
+          console.error('\n❌ NO PEER CONNECTION FOR ICE CANDIDATE');
+          console.error('   From peer:', fromPeerId);
+          console.error('   Available connections:', Array.from(prevConnections.keys()));
         } else if (!candidate) {
-          console.warn('Received empty ICE candidate from:', fromPeerId);
+          console.log('\n✅ ICE GATHERING COMPLETED FROM:', fromPeerId);
         }
         return prevConnections;
       });
@@ -487,11 +634,17 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   };
 
   const createPeerConnection = (user: User, isInitiator: boolean): RTCPeerConnection => {
-    console.log('=== CREATE PEER CONNECTION ===');
+    console.log('\n=== CREATE PEER CONNECTION ===');
     console.log('Creating peer connection for:', user.username);
     console.log('User peer ID:', user.peerId);
     console.log('Is initiator:', isInitiator);
     console.log('Current meeting ID:', currentMeetingId);
+    console.log('Current meeting ID ref:', currentMeetingIdRef.current);
+    console.log('Local stream available:', !!(localStreamRef.current || localStream));
+    console.log('Local stream tracks:', (localStreamRef.current || localStream)?.getTracks().length || 0);
+    
+    // Use the ref value if state is null (race condition protection)
+    const activeMeetingId = currentMeetingId || currentMeetingIdRef.current;
 
     if (!user.peerId) {
       console.error('Cannot create peer connection: user has no peer ID');
@@ -501,81 +654,266 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
     // Check if we already have a connection for this user
     const existingPc = peerConnections.get(user.peerId);
     if (existingPc) {
-      console.log('Existing peer connection found, reusing it for:', user.username);
-      return existingPc;
+      console.log('Existing peer connection found for:', user.username);
+      console.log('Existing connection state:', existingPc.connectionState);
+      
+      // Only reuse if connection is in good state
+      if (existingPc.connectionState === 'connected' || 
+          existingPc.connectionState === 'connecting' ||
+          existingPc.connectionState === 'new') {
+        console.log('Reusing existing connection in good state:', existingPc.connectionState);
+        return existingPc;
+      } else {
+        console.log('Closing and replacing connection in bad state:', existingPc.connectionState);
+        existingPc.close();
+        setPeerConnections(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(user.peerId);
+          return newMap;
+        });
+      }
     }
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
-    // Add local stream tracks - use modern addTrack API instead of deprecated addStream
+    // Add local stream tracks - use modern addTrack API
     const streamToAdd = localStreamRef.current || localStream;
     if (streamToAdd) {
       console.log('Adding local stream tracks to peer connection:', streamToAdd.id);
+      console.log('Stream active:', streamToAdd.active);
+      console.log('Available tracks:', streamToAdd.getTracks().length);
 
-      // Add each track individually (modern WebRTC API)
-      streamToAdd.getTracks().forEach(track => {
-        console.log('Adding track:', track.kind, track.id);
-        pc.addTrack(track, streamToAdd);
+      // Add each track individually with validation
+      const tracks = streamToAdd.getTracks();
+      console.log('\n🎥 ADDING TRACKS TO PEER CONNECTION');
+      console.log('Total tracks to add:', tracks.length);
+      
+      tracks.forEach((track, index) => {
+        console.log(`\n📹 Adding track ${index + 1}/${tracks.length}:`, {
+          kind: track.kind,
+          id: track.id,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          muted: track.muted
+        });
+        
+        try {
+          const sender = pc.addTrack(track, streamToAdd);
+          console.log('✅ Track added successfully:', track.kind);
+          console.log('   Sender created:', !!sender);
+          console.log('   Track in sender:', !!sender.track);
+        } catch (error) {
+          console.error('❌ Error adding track:', track.kind, error);
+        }
+      });
+      
+      console.log('\n📊 PEER CONNECTION SENDERS SUMMARY:');
+      const senders = pc.getSenders();
+      console.log('Total senders:', senders.length);
+      senders.forEach((sender, index) => {
+        console.log(`Sender ${index + 1}:`, {
+          hasTrack: !!sender.track,
+          trackKind: sender.track?.kind,
+          trackEnabled: sender.track?.enabled
+        });
       });
 
-      console.log('Local stream tracks added successfully');
+      console.log('✅ All local stream tracks processing completed');
     } else {
-      console.warn('No local stream available when creating peer connection');
-      console.warn('Ref stream:', !!localStreamRef.current, 'State stream:', !!localStream);
+      console.error('❌ No local stream available when creating peer connection');
+      console.error('Stream diagnostics:', {
+        refStream: !!localStreamRef.current,
+        stateStream: !!localStream,
+        refStreamId: localStreamRef.current?.id,
+        stateStreamId: (localStream as MediaStream | null)?.id || 'none'
+      });
+      // Don't create connection without local stream
+      return null as any;
     }
 
     pc.addEventListener('icecandidate', (event: any) => {
       if (event.candidate && socket) {
-        console.log('Sending ICE candidate to:', user.username);
+        console.log('\n🧊 SENDING ICE CANDIDATE');
+        console.log('   To user:', user.username);
+        console.log('   Candidate type:', event.candidate.type);
+        console.log('   Candidate protocol:', event.candidate.protocol);
         socket.emit('ice-candidate', {
           candidate: event.candidate,
           targetPeerId: user.peerId,
-          meetingId: currentMeetingId
+          meetingId: activeMeetingId
         });
+      } else if (!event.candidate) {
+        console.log('\n✅ ICE GATHERING COMPLETED for:', user.username);
       }
     });
 
     // Handle incoming remote tracks (modern API)
     pc.addEventListener('track', (event: any) => {
-      console.log('=== RECEIVED TRACK ===');
-      console.log('Track kind:', event.track?.kind);
-      console.log('Track ID:', event.track?.id);
-      console.log('Streams:', event.streams?.length || 0);
-      console.log('From user:', user.username, user.peerId);
+      console.log('\n🎬 === RECEIVED TRACK EVENT ===');
+      console.log('📥 From user:', user.username, user.peerId);
+      console.log('📹 Track details:', {
+        kind: event.track?.kind,
+        id: event.track?.id,
+        enabled: event.track?.enabled,
+        readyState: event.track?.readyState,
+        muted: event.track?.muted
+      });
+      console.log('📺 Streams in event:', event.streams?.length || 0);
+      
+      if (event.streams) {
+        event.streams.forEach((stream: MediaStream, index: number) => {
+          console.log(`📺 Stream ${index + 1}:`, {
+            id: stream.id,
+            active: stream.active,
+            tracks: stream.getTracks().length,
+            videoTracks: stream.getVideoTracks().length,
+            audioTracks: stream.getAudioTracks().length
+          });
+        });
+      }
 
       if (event.streams && event.streams[0]) {
         const stream = event.streams[0] as MediaStream;
         console.log('=== RECEIVED STREAM ===');
         console.log('Remote stream ID:', stream.id);
         console.log('Remote stream tracks:', stream.getTracks().length);
+        console.log('Video tracks:', stream.getVideoTracks().length);
+        console.log('Audio tracks:', stream.getAudioTracks().length);
+        console.log('Stream active:', stream.active);
 
-        // Store stream per participant
-        setRemoteStreams(prev => new Map(prev.set(user.peerId, stream)));
+        // Ensure we have valid video tracks before setting the stream
+        const videoTracks = stream.getVideoTracks();
+        const audioTracks = stream.getAudioTracks();
+        
+        if (videoTracks.length === 0) {
+          console.warn('⚠️ No video tracks in remote stream from:', user.username);
+          console.warn('   Stream ID:', stream.id);
+          console.warn('   Stream active:', stream.active);
+          console.warn('   All tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+          console.warn('   This might be a timing issue - tracks may be added later');
+        } else {
+          console.log('✅ Video tracks found:', videoTracks.length);
+          videoTracks.forEach((track, i) => {
+            console.log(`   Video track ${i + 1}:`, {
+              enabled: track.enabled,
+              readyState: track.readyState,
+              muted: track.muted,
+              id: track.id
+            });
+          });
+        }
+        
+        if (audioTracks.length === 0) {
+          console.warn('⚠️ No audio tracks in remote stream from:', user.username);
+        } else {
+          console.log('✅ Audio tracks found:', audioTracks.length);
+        }
+
+        // Monitor stream for dynamic track additions
+        stream.addEventListener('addtrack', (event) => {
+          console.log('🔄 Track added to remote stream from', user.username, ':', {
+            kind: event.track.kind,
+            enabled: event.track.enabled,
+            readyState: event.track.readyState,
+            id: event.track.id
+          });
+          
+          // Re-check track counts
+          const updatedVideoTracks = stream.getVideoTracks();
+          const updatedAudioTracks = stream.getAudioTracks();
+          console.log('📊 Updated track counts after addition:', {
+            video: updatedVideoTracks.length,
+            audio: updatedAudioTracks.length
+          });
+        });
+
+        // Store stream per participant with validation
+        setRemoteStreams(prev => {
+          const newMap = new Map(prev);
+          newMap.set(user.peerId, stream);
+          console.log('🗺️ STREAM MAPPING DEBUG:');
+          console.log('   Storing stream for peer ID:', user.peerId);
+          console.log('   Stream ID:', stream.id);
+          console.log('   Updated remote streams map, total streams:', newMap.size);
+          console.log('   All stream keys:', Array.from(newMap.keys()));
+          return newMap;
+        });
         
         // For backward compatibility, also set the global remoteStream for 1-on-1 calls
         setRemoteStream(stream);
         setRemoteUser(user);
 
-        // Also update participants with active connection status
+        // Update participants with active connection and stream status (only if participant exists)
         setParticipants(prev =>
           prev.map(p =>
             p.peerId === user.peerId
-              ? { ...p, hasActiveConnection: true }
+              ? { ...p, hasActiveConnection: true, hasActiveStream: true, isRefreshing: false }
               : p
           )
         );
+
+        console.log('\n✅ REMOTE STREAM PROCESSING COMPLETED');
+        console.log('   Stream attached for:', user.username);
+        console.log('   Stream stored in remoteStreams map');
+        console.log('   Participants updated with stream status');
       } else {
-        console.error('No stream in track event');
+        console.error('\n❌ NO STREAM IN TRACK EVENT');
+        console.error('   From user:', user.username);
+        console.error('   Event details:', {
+          track: !!event.track,
+          streams: event.streams?.length || 0,
+          receiver: !!event.receiver
+        });
       }
     });
 
     pc.addEventListener('connectionstatechange', () => {
       console.log('Connection state changed:', pc.connectionState, 'for user:', user.username);
 
-      if ((pc as any).connectionState === 'connected') {
+      if (pc.connectionState === 'connected') {
         console.log('✅ Peer connection established with:', user.username);
-      } else if ((pc as any).connectionState === 'failed' || (pc as any).connectionState === 'disconnected') {
+        // Update participant status to show active connection
+        setParticipants(prev =>
+          prev.map(p =>
+            p.peerId === user.peerId
+              ? { ...p, hasActiveConnection: true, isRefreshing: false }
+              : p
+          )
+        );
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
         console.log('❌ Peer connection failed/disconnected with:', user.username);
+        // Update participant status
+        setParticipants(prev =>
+          prev.map(p =>
+            p.peerId === user.peerId
+              ? { ...p, hasActiveConnection: false, isRefreshing: false }
+              : p
+          )
+        );
+        
+        // Attempt to reconnect after a delay
+        if (pc.connectionState === 'failed') {
+          setTimeout(() => {
+            console.log('Attempting to recreate failed connection with:', user.username);
+            // Remove failed connection
+            setPeerConnections(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(user.peerId);
+              return newMap;
+            });
+            // Create new connection
+            createPeerConnection(user, true);
+          }, 3000);
+        }
+      } else if (pc.connectionState === 'connecting') {
+        console.log('🔄 Connecting to:', user.username);
+        setParticipants(prev =>
+          prev.map(p =>
+            p.peerId === user.peerId
+              ? { ...p, hasActiveConnection: false, isRefreshing: true }
+              : p
+          )
+        );
       }
     });
 
@@ -585,29 +923,148 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
 
     if (isInitiator) {
       console.log('Creating and sending offer to:', user.username);
-      // Ensure connection is ready before creating offer
-      setTimeout(() => {
-        if (pc.connectionState === 'new' || pc.connectionState === 'connecting') {
-          (pc as any).createOffer({}, (offer: any) => {
-            console.log('Offer created for:', user.username);
-            (pc as any).setLocalDescription(offer, () => {
-              console.log('Local description set, sending offer');
-              socket?.emit('offer', {
-                offer: offer,
-                targetPeerId: user.peerId,
-                meetingId: currentMeetingId
-              });
-              console.log('Offer sent to:', user.username, user.peerId);
-            }, (error: any) => {
-              console.error('Error setting local description for offer:', user.username, error);
+      // Use modern promise-based approach with proper timing
+      setTimeout(async () => {
+        try {
+          // Validate connection state
+          if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+            console.warn('⚠️ Peer connection in invalid state for offer creation:', pc.connectionState);
+            return;
+          }
+
+          console.log('\n📝 CREATING OFFER');
+          console.log('   For user:', user.username);
+          console.log('   Connection state:', pc.connectionState);
+          console.log('   ICE connection state:', pc.iceConnectionState);
+          console.log('   Signaling state:', pc.signalingState);
+          
+          // Check signaling state before creating offer to prevent state machine errors
+          if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
+            console.error('❌ CANNOT CREATE OFFER - Wrong signaling state');
+            console.error('   Current state:', pc.signalingState);
+            console.error('   Expected: stable or have-local-offer');
+            
+            if (pc.signalingState === 'have-remote-offer') {
+              console.error('   🔄 OFFER COLLISION DETECTED - peer already sent us an offer');
+              console.error('   We should be answering, not offering');
+              
+              // Handle offer collision using peer ID comparison
+              const shouldBackOff = peerId < user.peerId; // Lower ID backs off
+              if (shouldBackOff) {
+                console.warn('   🔄 BACKING OFF - Our peer ID is lower, we should answer their offer');
+                console.warn('   ✅ Skipping offer creation - will answer incoming offer instead');
+                // Don't throw error - just return early and let the answer handler take over
+                return;
+              } else {
+                console.warn('   ⚔️ STANDING GROUND - Our peer ID is higher, expecting them to back off');
+                // Wait a bit and retry if they back off
+                await new Promise(resolve => setTimeout(resolve, 100));
+                // Check if the state changed after waiting
+                const newState = pc.signalingState as string;
+                if (newState === 'stable') {
+                  console.log('   ✅ State reset to stable, proceeding with offer');
+                } else {
+                  throw new Error(`Offer collision - other peer should back off but state is still: ${newState}`);
+                }
+              }
+            } else {
+              throw new Error(`Invalid signaling state for offer creation: ${pc.signalingState}`);
+            }
+          }
+          
+          // Check senders before creating offer
+          const senders = pc.getSenders();
+          console.log('   Senders before offer:', senders.length);
+          senders.forEach((sender, index) => {
+            console.log(`   Sender ${index + 1}:`, {
+              hasTrack: !!sender.track,
+              kind: sender.track?.kind,
+              enabled: sender.track?.enabled
             });
-          }, (error: any) => {
-            console.error('Error creating offer for:', user.username, error);
           });
-        } else {
-          console.warn('Peer connection not in correct state for offer creation:', pc.connectionState);
+          
+          console.log('✅ SIGNALING STATE VALID - Creating offer');
+          const offer = await pc.createOffer({});
+          console.log('\n✅ OFFER CREATED');
+          console.log('   SDP type:', offer.type);
+          console.log('   SDP contains video:', offer.sdp?.includes('m=video'));
+          console.log('   SDP contains audio:', offer.sdp?.includes('m=audio'));
+          
+          await pc.setLocalDescription(offer);
+          console.log('\n💾 LOCAL DESCRIPTION SET');
+          console.log('   Signaling state after:', pc.signalingState);
+          
+          // Use the most reliable meeting ID value - prefer ref over state for immediate updates
+          const finalMeetingId = currentMeetingIdRef.current || activeMeetingId;
+          const activeSocket = socketRef.current || socket;
+          
+          console.log('\n📤 MEETING ID RESOLUTION FOR OFFER:');
+          console.log('   activeMeetingId (local var):', activeMeetingId);
+          console.log('   currentMeetingId (state):', currentMeetingId);
+          console.log('   currentMeetingIdRef.current:', currentMeetingIdRef.current);
+          console.log('   ✅ Final meeting ID (ref || state):', finalMeetingId);
+          
+          if (!finalMeetingId) {
+            console.error('❌ CRITICAL: No meeting ID available to send offer!');
+            console.error('State:', currentMeetingId);
+            console.error('Ref:', currentMeetingIdRef.current);
+            console.error('Local:', activeMeetingId);
+            throw new Error('No meeting ID available to send offer');
+          }
+          
+          const offerData = {
+            offer: offer,
+            targetPeerId: user.peerId,
+            meetingId: finalMeetingId
+          };
+          
+          console.log('\n📤 ABOUT TO SEND OFFER:');
+          console.log('   Socket connected:', activeSocket?.connected);
+          console.log('   Socket ID:', activeSocket?.id);
+          console.log('   Target peer:', user.peerId);
+          console.log('   Meeting ID state:', activeMeetingId);
+          console.log('   Meeting ID ref:', currentMeetingIdRef.current);
+          console.log('   Final meeting ID:', finalMeetingId);
+          console.log('   Offer data:', offerData);
+          
+          activeSocket?.emit('offer', offerData);
+          console.log('\n📤 OFFER SENT TO:', user.username, user.peerId);
+        } catch (error) {
+          console.error('\n❌ ERROR CREATING/SENDING OFFER:', user.username, error);
+          
+          // Handle specific WebRTC state machine errors
+          const errorMessage = (error as Error)?.message || String(error);
+          if (errorMessage && (errorMessage.includes('have-remote-offer') || errorMessage.includes('Offer collision'))) {
+            console.error('   🔄 OFFER COLLISION DETECTED - Remote peer sent offer first');
+            console.error('   📊 Current signaling state:', pc.signalingState);
+            console.error('   🎯 Our peer ID:', peerId);
+            console.error('   🎯 Their peer ID:', user.peerId);
+            
+            // Check if we should back off (lower peer ID backs off)
+            const shouldBackOff = peerId < user.peerId;
+            if (shouldBackOff) {
+              console.error('   🔄 BACKING OFF - Our peer ID is lower, waiting for their offer to answer');
+              console.error('   ✅ This is expected behavior - no action needed');
+              // The offer reception handler will take care of this
+            } else {
+              console.error('   ⚔️ STANDING GROUND - Our peer ID is higher, waiting for them to back off');
+              // Retry offer creation after a short delay
+              setTimeout(() => {
+                console.log('   🔄 RETRYING OFFER CREATION after collision');
+                if (pc.signalingState === 'stable') {
+                  console.log('   ✅ State reset to stable, retrying offer');
+                  // Recursively retry the offer creation by calling the same logic
+                  // This would need a proper retry mechanism - for now just log
+                  console.log('   ⏳ Should retry offer creation here');
+                  // TODO: Implement proper retry mechanism
+                }
+              }, 200);
+            }
+          } else {
+            console.error('   💥 Unknown error type:', errorMessage);
+          }
         }
-      }, 1000); // Wait for connection to be ready
+      }, 500); // Reduced timeout for faster connection
     }
 
     return pc;
@@ -636,8 +1093,15 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       socketToUse.emit('create-meeting', (response: any) => {
         console.log('Received response from server:', response);
         if (response && response.success) {
+          console.log('🎯 CREATE MEETING SUCCESS: Setting meeting ID to:', response.meetingId);
+          console.log('📋 Previous meeting ID state:', currentMeetingId);
+          console.log('📋 Previous meeting ID ref:', currentMeetingIdRef.current);
+          
+          // Update both state and ref immediately to prevent race conditions
           setCurrentMeetingId(response.meetingId);
-          console.log('Meeting created successfully:', response.meetingId);
+          currentMeetingIdRef.current = response.meetingId;
+          
+          console.log('✅ CREATE MEETING: Meeting ID updated to:', response.meetingId);
 
           // Set participants from server response
           if (response.participants) {
@@ -691,8 +1155,15 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       socket.emit('create-meeting', (response: any) => {
         console.log('Received response from server:', response);
         if (response && response.success) {
+          console.log('🎯 CREATE MEETING SUCCESS: Setting meeting ID to:', response.meetingId);
+          console.log('📋 Previous meeting ID state:', currentMeetingId);
+          console.log('📋 Previous meeting ID ref:', currentMeetingIdRef.current);
+          
+          // Update both state and ref immediately to prevent race conditions
           setCurrentMeetingId(response.meetingId);
-          console.log('Meeting created successfully:', response.meetingId);
+          currentMeetingIdRef.current = response.meetingId;
+          
+          console.log('✅ CREATE MEETING: Meeting ID updated to:', response.meetingId);
 
           // Set participants from server response
           if (response.participants) {
@@ -742,9 +1213,12 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   const joinMeeting = (meetingId: string, socketToUse?: any): Promise<boolean> => {
     return new Promise((resolve, reject) => {
       console.log('=== JOIN MEETING DEBUG ===');
-      console.log('Meeting ID:', meetingId);
+      console.log('Meeting ID to join:', meetingId);
+      console.log('Meeting ID length:', meetingId?.length);
+      console.log('Meeting ID uppercase:', meetingId?.toUpperCase());
       console.log('Socket exists:', !!(socketToUse || socket));
       console.log('Socket connected:', (socketToUse || socket)?.connected);
+      console.log('Socket ID:', (socketToUse || socket)?.id);
       console.log('Local stream exists:', !!localStream);
       console.log('Current peer ID:', peerId);
       
@@ -767,7 +1241,15 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
         console.log('Full response:', response);
         
         if (response.success) {
+          console.log('🎯 JOIN MEETING SUCCESS: Setting meeting ID to:', meetingId);
+          console.log('📋 Previous meeting ID state:', currentMeetingId);
+          console.log('📋 Previous meeting ID ref:', currentMeetingIdRef.current);
+          
+          // Update both state and ref immediately to prevent race conditions
           setCurrentMeetingId(meetingId);
+          currentMeetingIdRef.current = meetingId;
+          
+          console.log('✅ JOIN MEETING: Meeting ID updated to:', meetingId);
 
           // Set participants from server response and mark local user
           const participantsWithLocalFlag = (response.participants || []).map((participant: User) => ({
@@ -794,49 +1276,56 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
           console.log('Successfully joined meeting:', meetingId);
           console.log('Number of participants including self:', participantsWithLocalFlag.length);
           
-          // Wait longer for state updates, then create peer connections
-          setTimeout(() => {
-            console.log('=== PEER CONNECTION CREATION TIMEOUT ===');
-            console.log('Current state:', {
-              localStreamState: !!localStream,
-              localStreamRef: !!localStreamRef.current,
-              localStreamSocket: !!activeSocket.localStream,
-              peerIdState: peerId,
-              peerIdRef: peerIdRef.current,
-              peerIdSocket: activeSocket.currentPeerId || activeSocket.id
+          console.log('\n🔗 CREATING PEER CONNECTIONS WITH EXISTING PARTICIPANTS');
+          console.log('Total existing participants:', response.participants?.length || 0);
+          
+          // Immediate peer connection creation for existing participants
+          const existingParticipants = (response.participants || []).filter((p: User) => p.id !== activeSocket.id);
+          console.log('Filtered existing participants (excluding self):', existingParticipants.length);
+          
+          existingParticipants.forEach((participant: User, index: number) => {
+            console.log(`\n👥 Processing existing participant ${index + 1}/${existingParticipants.length}:`, {
+              username: participant.username,
+              peerId: participant.peerId,
+              id: participant.id
             });
 
-            response.participants?.forEach((participant: User) => {
-              console.log('Processing existing participant:', {
-                username: participant.username,
-                peerId: participant.peerId,
-                id: participant.id
-              });
+            // Use ref values for immediate access with fallback
+            const hasStream = !!(localStreamRef.current || localStream || activeSocket.localStream);
+            const currentId = peerIdRef.current || peerId || activeSocket.id;
 
-              // Use ref values for immediate access with fallback
-              const hasStream = !!(localStreamRef.current || localStream);
-              const currentId = peerIdRef.current || peerId || activeSocket.id;
+            console.log('\n🔍 Connection validation:', {
+              hasLocalStream: hasStream,
+              participantPeerId: participant.peerId,
+              currentPeerId: currentId,
+              sameId: participant.peerId === currentId,
+              streamRef: !!localStreamRef.current,
+              streamState: !!localStream,
+              streamSocket: !!activeSocket.localStream
+            });
 
-              console.log('Peer connection check for existing participant:', {
-                hasLocalStream: hasStream,
+            if (hasStream && participant.peerId && participant.peerId !== currentId) {
+              console.log('\n✅ CREATING PEER CONNECTION (joiner initiates)');
+              console.log('   To existing participant:', participant.username);
+              try {
+                const pc = createPeerConnection(participant, true);
+                if (pc) {
+                  console.log('\n✅ PEER CONNECTION CREATED SUCCESSFULLY');
+                } else {
+                  console.error('\n❌ PEER CONNECTION CREATION FAILED');
+                }
+              } catch (error) {
+                console.error('\n❌ ERROR CREATING PEER CONNECTION:', error);
+              }
+            } else {
+              console.log('\n⚠️ SKIPPING PEER CONNECTION - CONDITIONS NOT MET:', {
+                hasStream: hasStream,
                 participantPeerId: participant.peerId,
                 currentPeerId: currentId,
-                sameId: participant.peerId === currentId
+                isSameId: participant.peerId === currentId
               });
-
-              if (hasStream && participant.peerId && participant.peerId !== currentId) {
-                console.log('✅ Creating peer connection to existing participant:', participant.username);
-                createPeerConnection(participant, true);
-              } else {
-                console.log('❌ Skipping peer connection to existing participant - conditions not met:', {
-                  hasStream: hasStream,
-                  participantPeerId: participant.peerId,
-                  currentPeerId: currentId,
-                  isSameId: participant.peerId === currentId
-                });
-              }
-            });
-          }, 2000); // Increased timeout to ensure all state is settled
+            }
+          });
           
           resolve(true);
         } else {
@@ -888,25 +1377,70 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
   };
 
   const closeCall = () => {
-    peerConnections.forEach(pc => pc.close());
+    console.log('=== CLOSE CALL ===');
+    console.log('Closing peer connections:', peerConnections.size);
+    
+    // Close all peer connections
+    peerConnections.forEach((pc, peerId) => {
+      console.log('Closing connection for peer:', peerId, 'state:', pc.connectionState);
+      pc.close();
+    });
     setPeerConnections(new Map());
+    
+    // Clean up streams
+    console.log('Cleaning up streams');
     setActiveCall(null);
     setRemoteUser(null);
     setRemoteStream(null);
     setRemoteStreams(new Map());
+    
+    // Leave meeting and disconnect
     leaveMeeting();
+    
+    console.log('Call cleanup completed');
   };
 
   const reset = async () => {
-    socket?.disconnect();
-    peerConnections.forEach(pc => pc.close());
+    console.log('=== RESET WEBRTC ===');
+    
+    // Disconnect socket
+    if (socket) {
+      console.log('Disconnecting socket');
+      socket.disconnect();
+      setSocket(null);
+      socketRef.current = null;
+    }
+    
+    // Close all peer connections
+    console.log('Closing', peerConnections.size, 'peer connections');
+    peerConnections.forEach((pc, peerId) => {
+      console.log('Closing connection for peer:', peerId);
+      pc.close();
+    });
     setPeerConnections(new Map());
+    
+    // Leave meeting
     leaveMeeting();
+    
+    // Stop local stream tracks
+    if (localStream) {
+      console.log('Stopping local stream tracks');
+      localStream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped track:', track.kind);
+      });
+    }
+    
+    // Clear all state
     setLocalStream(null);
+    localStreamRef.current = null;
     setRemoteStream(null);
     setRemoteStreams(new Map());
     setUsername('');
     setPeerId('');
+    peerIdRef.current = '';
+    
+    console.log('WebRTC reset completed');
   };
 
   const refreshParticipantVideo = async (participantPeerId: string): Promise<void> => {
