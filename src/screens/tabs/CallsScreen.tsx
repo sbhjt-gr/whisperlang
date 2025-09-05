@@ -95,8 +95,7 @@ export default function CallsScreen({ navigation }: Props) {
     const meetingId = `INSTANT_${Date.now()}`;
     navigation.navigate('VideoCallScreen', {
       id: meetingId,
-      type: 'instant',
-      joinCode: meetingId
+      type: 'instant'
     });
   };
 
@@ -181,7 +180,7 @@ export default function CallsScreen({ navigation }: Props) {
                   end={{ x: 1, y: 1 }}
                 >
                   <Ionicons name="videocam" size={32} color="#ffffff" />
-                  <Text style={styles.primaryActionTitle}>Start Instant Call</Text>
+                  <Text style={styles.primaryActionTitle}>Start a meeting</Text>
                   <Text style={styles.primaryActionSubtitle}>Begin translating immediately</Text>
                 </LinearGradient>
               </TouchableOpacity>

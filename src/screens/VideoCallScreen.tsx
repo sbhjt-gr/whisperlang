@@ -63,6 +63,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     currentMeetingId,
     refreshParticipantVideo,
     peerId,
+    setUsername,
+    createMeetingWithSocket,
   } = useContext(WebRTCContext);
 
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -253,13 +255,26 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       try {
         let socketConnection = null;
         
+        console.log('🔍 Initialization Debug:');
+        console.log('  localStream exists:', !!localStream);
+        console.log('  route.params.type:', route.params.type);
+        console.log('  currentMeetingId:', currentMeetingId);
+        
         if (!localStream || (route.params.type === 'join' && !currentMeetingId)) {
+          console.log('Initializing WebRTC...');
           const initResult = await initialize(username);
           socketConnection = initResult.socket || initResult;
+          
+          console.log('WebRTC initialization result:');
+          console.log('  initResult:', !!initResult);
+          console.log('  socketConnection:', !!socketConnection);
+          console.log('  socketConnection.connected:', socketConnection?.connected);
           
           if (!localStream && !initResult.localStream) {
             throw new Error('Failed to obtain local media stream after initialization');
           }
+        } else {
+          console.log('Using existing socket connection');
         }
         
         if (route.params.type === 'join') {
@@ -295,41 +310,72 @@ export default function VideoCallScreen({ navigation, route }: Props) {
           setIsInstantCall(true);
           setShowJoinCodeUI(true);
           
-          const meetingId = route.params.joinCode || route.params.id;
+          const currentUser = auth.currentUser;
+          const username = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'User';
           
-          if (meetingId) {
-            try {
-              const joined = await joinMeeting(meetingId, socketConnection);
-              if (!joined) {
-                // If joining fails, create a new meeting for instant call
-                const newMeetingId = await createMeeting();
-                console.log('Created new meeting for instant call:', newMeetingId);
-              } else {
-                // Successfully joined an existing instant call
-                setShowJoinCodeUI(false);
-              }
-            } catch (error) {
-              // If joining fails, create a new meeting for instant call
-              const newMeetingId = await createMeeting();
-              console.log('Created new meeting for instant call after error:', newMeetingId);
-            }
-          } else {
-            // No meeting ID provided, create a new instant call
-            const newMeetingId = await createMeeting();
-            console.log('Created new instant call meeting:', newMeetingId);
+          console.log('Setting username for instant call:', username);
+          setUsername(username);
+          
+          console.log('Initializing WebRTC for instant call...');
+          const initResult = await initialize(username);
+          const socket = initResult.socket || initResult;
+          
+          if (!socket || !socket.connected) {
+            throw new Error('Socket not connected - cannot create meeting');
           }
           
+          console.log('Creating instant call meeting...');
+          const newMeetingId = await createMeetingWithSocket(socket);
+          
+          if (!newMeetingId) {
+            throw new Error('Meeting creation returned empty meeting ID');
+          }
+          
+          console.log('✅ Created instant call meeting:', newMeetingId);
+          
         } else if (!route.params.type || route.params.type === 'create') {
-          const meetingId = await createMeeting();
-          
-          // For regular meeting creation, show the join code UI as well
-          setShowJoinCodeUI(true);
-          
-          Alert.alert(
-            'Meeting Created',
-            `Your meeting ID is: ${meetingId}\n\nShare this ID with participants to join the meeting.`,
-            [{ text: 'OK' }]
-          );
+          try {
+            console.log('Creating regular meeting...');
+            
+            // Ensure we have a socket connection before creating meeting
+            let socketToUse = socketConnection;
+            if (!socketToUse) {
+              console.log('No socket connection available, initializing...');
+              const initResult = await initialize(username);
+              socketToUse = initResult.socket || initResult;
+            }
+            
+            if (!socketToUse || !socketToUse.connected) {
+              throw new Error('Socket not connected - cannot create meeting');
+            }
+            
+            // Small delay to ensure socket is fully ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const meetingId = await createMeeting();
+            console.log('✅ Created regular meeting:', meetingId);
+            
+            if (!meetingId) {
+              throw new Error('Meeting creation returned empty meeting ID');
+            }
+            
+            // For regular meeting creation, show the join code UI as well
+            setShowJoinCodeUI(true);
+            
+            Alert.alert(
+              'Meeting Created',
+              `Your meeting ID is: ${meetingId}\n\nShare this ID with participants to join the meeting.`,
+              [{ text: 'OK' }]
+            );
+          } catch (meetingError) {
+            console.error('❌ Failed to create regular meeting:', meetingError);
+            Alert.alert(
+              'Meeting Creation Failed',
+              `Failed to create meeting: ${meetingError instanceof Error ? meetingError.message : 'Unknown error'}`,
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+            return;
+          }
         }
         
       } catch (error) {
