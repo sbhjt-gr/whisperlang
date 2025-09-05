@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import ParticipantGrid from '../components/ParticipantGrid';
-import { User } from '../interfaces/webrtc';
+import { User } from '../store/WebRTCTypes';
 
 const MultiParticipantDemo: React.FC = () => {
   const [participants, setParticipants] = useState<User[]>([

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect } from 'react';
-import { WebRTCContext } from '../store/WebRTCProvider';
+import { WebRTCContext } from '../store/WebRTCContext';
 import { videoCallService } from '../services/VideoCallService';
 
 interface Props {

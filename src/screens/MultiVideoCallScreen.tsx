@@ -19,11 +19,11 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { auth } from "../config/firebase";
 import { RootStackParamList } from '../types/navigation';
-import {WebRTCContext} from '../store/WebRTCProvider';
+import {WebRTCContext} from '../store/WebRTCContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import GradientCard from '../components/GradientCard';
-import { User } from '../interfaces/webrtc';
+import { User } from '../store/WebRTCTypes';
 
 const {width, height} = Dimensions.get('window');
 
@@ -159,6 +159,9 @@ export default function VideoCallScreen({ navigation, route }: Props) {
 
   // Debug participants and streams (moved to useEffect to prevent render warnings)
   useEffect(() => {
+    const actualPeerId = peerId || 'local';
+    const localParticipantExists = participants.some(p => p.isLocal || (p.peerId === actualPeerId && p.id === actualPeerId));
+    
     console.log('🎭 PARTICIPANT GRID PREPARATION:');
     console.log('   Local participant exists:', localParticipantExists);
     console.log('   Actual peer ID:', actualPeerId);
@@ -170,7 +173,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     })));
     console.log('   Remote streams available:', remoteStreams?.size || 0);
     console.log('   Remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
-  }, [participants, remoteStreams, localParticipantExists, actualPeerId]);
+  }, [participants, remoteStreams, peerId]);
 
   const initializeMockParticipants = () => {
     const mockUsers: User[] = [

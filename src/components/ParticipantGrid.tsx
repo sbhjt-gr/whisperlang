@@ -9,7 +9,7 @@ import {
 import { RTCView } from 'react-native-webrtc';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { User } from '../interfaces/webrtc';
+import { User } from '../store/WebRTCTypes';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,6 +47,23 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
       isLocal: p.isLocal
     })));
   }, [participants, localStream, currentUser, remoteStreams]);
+  
+  // Monitor remote streams changes specifically
+  useEffect(() => {
+    console.log('=== REMOTE STREAMS CHANGED ===');
+    console.log('Remote streams count:', remoteStreams?.size || 0);
+    if (remoteStreams && remoteStreams.size > 0) {
+      console.log('Available streams:');
+      remoteStreams.forEach((stream, peerId) => {
+        console.log(`  ${peerId}:`, {
+          streamId: stream.id,
+          active: stream.active,
+          videoTracks: stream.getVideoTracks().length,
+          audioTracks: stream.getAudioTracks().length,
+        });
+      });
+    }
+  }, [remoteStreams]);
   
   // Monitor stream changes
   useEffect(() => {
@@ -151,38 +168,87 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
                 </View>
               ) : (
                 (() => {
-                  const remoteStream = participant && remoteStreams ? remoteStreams.get(participant.peerId) : null;
+                  if (!participant || !participant.peerId || !remoteStreams) {
+                    console.log('=== MISSING DATA FOR REMOTE PARTICIPANT ===');
+                    console.log('Participant exists:', !!participant);
+                    console.log('PeerId exists:', !!participant?.peerId);
+                    console.log('RemoteStreams exists:', !!remoteStreams);
+                    return (
+                      <View style={styles.mockVideoContainer}>
+                        <LinearGradient
+                          colors={['#4f46e5', '#7c3aed']}
+                          style={styles.mockVideoGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <View style={styles.avatarContainer}>
+                            <Ionicons name="person" size={40} color="#ffffff" />
+                            <Text style={styles.debugText}>Missing Data</Text>
+                          </View>
+                        </LinearGradient>
+                      </View>
+                    );
+                  }
+
+                  const remoteStream = remoteStreams.get(participant.peerId);
                   console.log('=== REMOTE PARTICIPANT RENDER ===');
-                  console.log('Participant:', participant?.username, participant?.peerId);
+                  console.log('Participant:', participant.username, participant.peerId);
                   console.log('Remote stream available:', !!remoteStream);
-                  console.log('Available remote stream keys:', remoteStreams ? Array.from(remoteStreams.keys()) : []);
-                  console.log('Looking for peer ID:', participant?.peerId);
-                  console.log('Exact match found:', remoteStreams?.has(participant?.peerId || ''));
+                  console.log('Available remote stream keys:', Array.from(remoteStreams.keys()));
+                  console.log('Looking for peer ID:', participant.peerId);
+                  console.log('Exact match found:', remoteStreams.has(participant.peerId));
                   
-                  return remoteStream ? (
-                    <RTCView
-                      style={styles.videoStream}
-                      streamURL={remoteStream.toURL()}
-                      objectFit="cover"
-                      zOrder={1}
-                      mirror={false}
-                    />
-                  ) : (
-                    <View style={styles.mockVideoContainer}>
-                      <LinearGradient
-                        colors={['#4f46e5', '#7c3aed']}
-                        style={styles.mockVideoGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        <View style={styles.avatarContainer}>
-                          <Ionicons name="person" size={40} color="#ffffff" />
-                          <Text style={styles.debugText}>No Video</Text>
-                          <Text style={styles.debugText}>{participant?.peerId?.slice(-4)}</Text>
+                  if (remoteStream) {
+                    console.log('✅ RENDERING VIDEO FOR:', participant.username);
+                    try {
+                      const streamUrl = remoteStream.toURL();
+                      console.log('Stream URL generated:', !!streamUrl);
+                      return (
+                        <RTCView
+                          style={styles.videoStream}
+                          streamURL={streamUrl}
+                          objectFit="cover"
+                          zOrder={1}
+                          mirror={false}
+                        />
+                      );
+                    } catch (error) {
+                      console.error('Error rendering remote video:', error);
+                      return (
+                        <View style={styles.mockVideoContainer}>
+                          <LinearGradient
+                            colors={['#dc2626', '#b91c1c']}
+                            style={styles.mockVideoGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                          >
+                            <View style={styles.avatarContainer}>
+                              <Ionicons name="warning" size={40} color="#ffffff" />
+                              <Text style={styles.debugText}>Video Error</Text>
+                            </View>
+                          </LinearGradient>
                         </View>
-                      </LinearGradient>
-                    </View>
-                  );
+                      );
+                    }
+                  } else {
+                    console.log('❌ NO STREAM FOUND FOR:', participant.username, participant.peerId);
+                    return (
+                      <View style={styles.mockVideoContainer}>
+                        <LinearGradient
+                          colors={['#4f46e5', '#7c3aed']}
+                          style={styles.mockVideoGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <View style={styles.avatarContainer}>
+                            <Ionicons name="person" size={40} color="#ffffff" />
+                            <Text style={styles.debugText}>No Video</Text>
+                            <Text style={styles.debugText}>{participant.peerId.slice(-4)}</Text>
+                          </View>
+                        </LinearGradient>
+                      </View>
+                    );
+                  }
                 })()
               )}
               
@@ -229,15 +295,17 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
   };
 
   const getAllParticipants = () => {
-    // Start with all participants from screen component (should already include local if needed)
-    let allParticipants = [...participants];
+    // Filter out duplicate participants by peerId to ensure unique entries
+    const uniqueParticipants = participants.filter((participant, index, self) => 
+      index === self.findIndex(p => p.peerId === participant.peerId)
+    );
 
     console.log('=== PARTICIPANT GRID PARTICIPANTS ===');
     console.log('Current user:', currentUser);
     console.log('Local stream available:', !!localStream);
-    console.log('Remote participants:', participants.length);
-    console.log('All participants:', allParticipants.length);
-    console.log('Participants list:', allParticipants.map(p => ({
+    console.log('Original participants:', participants.length);
+    console.log('Unique participants after dedup:', uniqueParticipants.length);
+    console.log('Participants list:', uniqueParticipants.map(p => ({
       name: p.name || p.username,
       isLocal: p.isLocal,
       peerId: p.peerId,
@@ -245,10 +313,10 @@ const ParticipantGrid: React.FC<ParticipantGridProps> = ({
     })));
 
     if (showAddButton) {
-      allParticipants.push(null as any);
+      uniqueParticipants.push(null as any);
     }
 
-    return allParticipants;
+    return uniqueParticipants;
   };
 
   return (

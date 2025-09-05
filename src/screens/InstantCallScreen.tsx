@@ -19,8 +19,8 @@ import * as Clipboard from 'expo-clipboard';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
-import { WebRTCContext } from '../store/WebRTCProvider';
-import { User } from '../interfaces/webrtc';
+import { WebRTCContext } from '../store/WebRTCContext';
+import { User } from '../store/WebRTCTypes';
 import ParticipantGrid from '../components/ParticipantGrid';
 import { auth } from '../config/firebase';
 

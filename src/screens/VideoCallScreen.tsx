@@ -19,11 +19,11 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { auth } from "../config/firebase";
 import { RootStackParamList } from '../types/navigation';
-import {WebRTCContext} from '../store/WebRTCProvider';
+import {WebRTCContext} from '../store/WebRTCContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import GradientCard from '../components/GradientCard';
-import { User } from '../interfaces/webrtc';
+import { User } from '../store/WebRTCTypes';
 
 const {width, height} = Dimensions.get('window');
 
@@ -111,11 +111,13 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     console.log('Local stream exists:', !!localStream);
     console.log('Current meeting ID:', currentMeetingId);
     
-    // Prevent multiple initialization attempts
+    // Prevent multiple initialization attempts entirely
     if (initializationAttempted.current) {
       console.log('Initialization already attempted, skipping');
       return;
     }
+    
+    console.log('Setting initialization flag to prevent duplicates');
     initializationAttempted.current = true;
     
     const initializeCall = async () => {
@@ -125,10 +127,8 @@ export default function VideoCallScreen({ navigation, route }: Props) {
       try {
         let socketConnection = null;
         
-        // Only initialize if we don't have local stream OR if we're trying to join but don't have a meeting ID
-        const needsInitialization = !localStream || (route.params.type === 'join' && !currentMeetingId);
-        
-        if (needsInitialization) {
+        // Initialize WebRTC if needed
+        if (!localStream || (route.params.type === 'join' && !currentMeetingId)) {
           console.log('Missing local stream or socket, initializing WebRTC...');
           console.log('Local stream exists:', !!localStream);
           console.log('Current meeting ID:', currentMeetingId);
@@ -251,7 +251,7 @@ export default function VideoCallScreen({ navigation, route }: Props) {
     };
 
     initializeCall();
-  }, []); // Run only once on mount
+  }, [route.params.type, route.params.joinCode]); // Only trigger on route param changes to prevent multiple initializations
 
   const initializeMockParticipants = () => {
     const mockUsers: User[] = [

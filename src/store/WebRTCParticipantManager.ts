@@ -25,11 +25,29 @@ export class WebRTCParticipantManager {
   addParticipant(user: User) {
     console.log(`👥 Adding participant: ${user.username} (${user.peerId})`);
     
+    // Check for existing participant by peer ID first
     const existingIndex = this.participants.findIndex(p => p.peerId === user.peerId);
     if (existingIndex !== -1) {
       console.log(`🔄 Updating existing participant: ${user.username}`);
       this.participants[existingIndex] = { ...this.participants[existingIndex], ...user };
     } else {
+      // Also check for duplicate participants by username (in case of multiple socket connections)
+      const duplicateByName = this.participants.find(p => 
+        p.username.trim() === user.username.trim() && p.peerId !== user.peerId
+      );
+      
+      if (duplicateByName) {
+        console.log(`⚠️ DUPLICATE USER DETECTED: ${user.username} already exists with different peer ID`);
+        console.log(`   Existing: ${duplicateByName.peerId}, New: ${user.peerId}`);
+        console.log(`   Replacing old participant with new one`);
+        
+        // Remove the old participant and add the new one
+        const oldIndex = this.participants.findIndex(p => p.peerId === duplicateByName.peerId);
+        if (oldIndex !== -1) {
+          this.participants.splice(oldIndex, 1);
+        }
+      }
+      
       console.log(`➕ Adding new participant: ${user.username}`);
       this.participants.push(user);
     }

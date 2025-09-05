@@ -180,7 +180,24 @@ export class WebRTCSocketManager {
       }
       
       console.log('✅ Offer meeting ID matches, processing...');
-      this.onOfferReceived?.(data);
+      
+      // Transform server data format to match signaling handler expectations
+      const transformedData = {
+        from: fromPeerId,
+        to: this.peerId, // Our peer ID
+        offer: offer,
+        meetingId: meetingId,
+        fromUsername: fromUsername
+      };
+      
+      console.log('📋 Transformed offer data:', {
+        from: transformedData.from,
+        to: transformedData.to,
+        meetingId: transformedData.meetingId,
+        hasOffer: !!transformedData.offer
+      });
+      
+      this.onOfferReceived?.(transformedData);
     });
 
     io.on('answer', async (data: any) => {
@@ -189,7 +206,15 @@ export class WebRTCSocketManager {
       console.log('   From peer:', fromPeerId);
       console.log('   Answer SDP type:', answer.type);
       
-      this.onAnswerReceived?.(data);
+      // Transform server data format to match signaling handler expectations
+      const transformedData = {
+        from: fromPeerId,
+        to: this.peerId,
+        answer: answer,
+        meetingId: this.currentMeetingId
+      };
+      
+      this.onAnswerReceived?.(transformedData);
     });
 
     io.on('ice-candidate', async (data: any) => {
@@ -197,7 +222,15 @@ export class WebRTCSocketManager {
       console.log('\n🧊 === ICE CANDIDATE RECEIVED ===');
       console.log('   From peer:', fromPeerId);
       
-      this.onIceCandidateReceived?.(data);
+      // Transform server data format to match signaling handler expectations
+      const transformedData = {
+        from: fromPeerId,
+        to: this.peerId,
+        candidate: candidate,
+        meetingId: this.currentMeetingId
+      };
+      
+      this.onIceCandidateReceived?.(transformedData);
     });
   }
 

@@ -3,8 +3,8 @@ import {Alert, StyleSheet, Text, View, FlatList, Animated} from 'react-native';
 import {TouchableOpacity} from 'react-native-gesture-handler';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {WebRTCContext} from '../store/WebRTCProvider';
-import {User} from '../interfaces/webrtc';
+import {WebRTCContext} from '../store/WebRTCContext';
+import {User} from '../store/WebRTCTypes';
 import {RootStackParamList} from '../types/navigation';
 import {auth} from '../config/firebase';
 import AnimatedHeader from '../components/AnimatedHeader';
@@ -46,7 +46,7 @@ const UsersScreen = ({navigation}: Props) => {
 
   const onCall = (user: User) => {
     call(user);
-    navigation.navigate('VideoCallScreen', {id: Date.now()});
+    navigation.navigate('VideoCallScreen', {id: Date.now().toString()});
   };
 
   const renderUser = ({item, index}: {item: User; index: number}) => (
@@ -101,7 +101,7 @@ const UsersScreen = ({navigation}: Props) => {
       />
       
       <View style={styles.content}>
-        {users.length === 0 ? (
+        {!users || users.length === 0 ? (
           <Animated.View
             style={[
               styles.emptyState,

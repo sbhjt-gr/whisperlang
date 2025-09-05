@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
 import { getCurrentUser } from './FirebaseService';
-import { User } from '../interfaces/webrtc';
+import { User } from '../store/WebRTCTypes';
 
 interface Contact {
   id: string;
