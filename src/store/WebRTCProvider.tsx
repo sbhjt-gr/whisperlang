@@ -232,8 +232,9 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       audio: true,
       video: {
         facingMode: 'user',
-        width: { ideal: 640 },
-        height: { ideal: 480 },
+        width: { ideal: 640, min: 320, max: 1280 },
+        height: { ideal: 480, min: 240, max: 720 },
+        frameRate: { ideal: 30, min: 15, max: 60 },
       },
     };
 
@@ -243,6 +244,32 @@ const WebRTCProvider: React.FC<Props> = ({children}) => {
       console.log('Requesting user media with constraints:', constraints);
       newStream = await mediaDevices.getUserMedia(constraints);
       console.log('Got local stream:', newStream.id);
+      
+      // Log detailed track information
+      const videoTracks = newStream.getVideoTracks();
+      const audioTracks = newStream.getAudioTracks();
+      console.log(`📹 Created ${videoTracks.length} video tracks, ${audioTracks.length} audio tracks`);
+      
+      videoTracks.forEach((track, index) => {
+        console.log(`Video track ${index + 1}:`, {
+          id: track.id,
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          settings: track.getSettings(),
+        });
+      });
+      
+      audioTracks.forEach((track, index) => {
+        console.log(`Audio track ${index + 1}:`, {
+          id: track.id,
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          settings: track.getSettings(),
+        });
+      });
+      
       setLocalStream(newStream as MediaStream);
       localStreamRef.current = newStream as MediaStream;
     } catch (error) {

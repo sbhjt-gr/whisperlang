@@ -120,8 +120,12 @@ export class WebRTCParticipantManager {
     otherParticipants.forEach(participant => {
       console.log(`🤝 Requesting peer connection with: ${participant.username} (${participant.peerId})`);
       
-      // We are the initiator since we're joining an existing meeting
-      this.onPeerConnectionRequested?.(participant, true);
+      // Use lexicographic comparison to determine initiator consistently
+      // This prevents both sides from initiating or both sides waiting
+      const shouldInitiate = currentSocketId > participant.peerId;
+      console.log(`🎯 Initiator decision: ${shouldInitiate ? 'YES' : 'NO'} (${currentSocketId} > ${participant.peerId})`);
+      
+      this.onPeerConnectionRequested?.(participant, shouldInitiate);
     });
   }
 
@@ -134,8 +138,12 @@ export class WebRTCParticipantManager {
     if (user.peerId !== currentPeerId) {
       console.log(`🤝 Creating peer connection with new user: ${user.username}`);
       
-      // We are NOT the initiator since the other user joined after us
-      this.onPeerConnectionRequested?.(user, false);
+      // Use lexicographic comparison to determine initiator consistently
+      // The peer with the higher ID should initiate the connection
+      const shouldInitiate = currentPeerId > user.peerId;
+      console.log(`🎯 Initiator decision: ${shouldInitiate ? 'YES' : 'NO'} (${currentPeerId} > ${user.peerId})`);
+      
+      this.onPeerConnectionRequested?.(user, shouldInitiate);
     } else {
       console.log(`🆔 This is our own join event, skipping peer connection creation`);
     }

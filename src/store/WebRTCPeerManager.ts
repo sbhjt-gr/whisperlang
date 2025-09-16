@@ -148,23 +148,43 @@ export class WebRTCPeerManager {
         this.onConnectionStateChanged(user.peerId, state);
       }
 
-      if (state === 'failed' || state === 'closed') {
-        console.log(`💔 Connection ${state} for ${user.username} - cleaning up`);
+      if (state === 'connected') {
+        console.log(`🎉 Connection established with ${user.username}!`);
+      } else if (state === 'failed') {
+        console.log(`💔 Connection failed for ${user.username} - attempting to restart ICE`);
+        // Attempt ICE restart
+        pc.restartIce();
+        
+        // Clean up after a delay if still failed
+        setTimeout(() => {
+          if (pc.connectionState === 'failed') {
+            console.log(`�️ Cleaning up failed connection for ${user.username}`);
+            this.remoteStreams.delete(user.peerId);
+          }
+        }, 5000);
+      } else if (state === 'closed') {
+        console.log(`🚪 Connection closed for ${user.username} - cleaning up`);
         this.remoteStreams.delete(user.peerId);
-        if (state === 'failed') {
-          setTimeout(() => {
-            console.log(`🔄 Attempting to recreate connection for ${user.username}`);
-          }, 2000);
-        }
       }
     });
 
     pc.addEventListener('iceconnectionstatechange', () => {
-      console.log(`❄️  ICE connection state for ${user.username}: ${pc.iceConnectionState}`);
+      const state = pc.iceConnectionState;
+      console.log(`❄️  ICE connection state for ${user.username}: ${state}`);
+      
+      if (state === 'connected' || state === 'completed') {
+        console.log(`🎯 ICE connection successful for ${user.username}`);
+      } else if (state === 'failed') {
+        console.log(`❌ ICE connection failed for ${user.username}`);
+      }
     });
 
     pc.addEventListener('icegatheringstatechange', () => {
       console.log(`🔍 ICE gathering state for ${user.username}: ${pc.iceGatheringState}`);
+    });
+
+    pc.addEventListener('signalingstatechange', () => {
+      console.log(`📡 Signaling state for ${user.username}: ${pc.signalingState}`);
     });
 
     console.log(`✅ Event handlers setup completed for ${user.username}`);
@@ -176,6 +196,7 @@ export class WebRTCPeerManager {
     console.log(`Track kind: ${event.track.kind}`);
     console.log(`Track ID: ${event.track.id}`);
     console.log(`Track enabled: ${event.track.enabled}`);
+    console.log(`Track readyState: ${event.track.readyState}`);
     console.log(`Streams count: ${event.streams?.length || 0}`);
     
     if (!event.streams || event.streams.length === 0) {
@@ -187,10 +208,28 @@ export class WebRTCPeerManager {
     console.log(`📺 Remote stream ID: ${remoteStream.id}`);
     console.log(`📺 Remote stream tracks: ${remoteStream.getTracks().length}`);
     
-    // Log all tracks in the stream
+    // Log all tracks in the stream with detailed info
     remoteStream.getTracks().forEach((track: any, index: number) => {
-      console.log(`   Track ${index + 1}: ${track.kind} (enabled: ${track.enabled})`);
+      console.log(`   Track ${index + 1}: ${track.kind} (enabled: ${track.enabled}, readyState: ${track.readyState})`);
+      
+      // Add track event listeners for debugging
+      track.addEventListener('ended', () => {
+        console.log(`🛑 Track ended from ${user.username}: ${track.kind}`);
+      });
+      
+      track.addEventListener('mute', () => {
+        console.log(`🔇 Track muted from ${user.username}: ${track.kind}`);
+      });
+      
+      track.addEventListener('unmute', () => {
+        console.log(`🔊 Track unmuted from ${user.username}: ${track.kind}`);
+      });
     });
+
+    // Verify we have at least one video track
+    const videoTracks = remoteStream.getVideoTracks();
+    const audioTracks = remoteStream.getAudioTracks();
+    console.log(`📹 Video tracks: ${videoTracks.length}, Audio tracks: ${audioTracks.length}`);
 
     // Store the remote stream
     const existingStream = this.remoteStreams.get(user.peerId);

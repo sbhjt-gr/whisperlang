@@ -111,9 +111,21 @@ export class WebRTCSocketManager {
     this.username = username;
     
     try {
-      const serverUrls = SERVER_URLS.length > 0 ? SERVER_URLS : [SERVER_URL];
-      console.log('Trying server URLs:', serverUrls);
-      const io = await this.connectWithFallback(serverUrls, username);
+      const primaryUrl = SERVER_URL;
+      const fallbackUrls = SERVER_URLS.length > 0 ? SERVER_URLS : [];
+      const allUrls = [primaryUrl, ...fallbackUrls].filter(Boolean);
+      
+      console.log('🔍 Environment variables loaded:');
+      console.log('  PRIMARY URL:', primaryUrl);
+      console.log('  FALLBACK URLS:', fallbackUrls);
+      console.log('  ALL URLs TO TRY:', allUrls);
+      
+      if (allUrls.length === 0 || allUrls.every(url => !url || url === 'undefined')) {
+        console.error('❌ No valid server URLs found, using hardcoded fallback');
+        allUrls.push('https://whisperlang-render.onrender.com');
+      }
+      
+      const io = await this.connectWithFallback(allUrls, username);
       
       this.socket = io;
       this.setupSocketListeners(io);

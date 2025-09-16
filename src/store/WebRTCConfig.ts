@@ -9,14 +9,16 @@ import {
 } from '@env';
 
 export const getServerURL = () => {
-  return SIGNALING_SERVER_URL;
+  const url = SIGNALING_SERVER_URL || 'https://whisperlang-render.onrender.com';
+  console.log('🔍 Primary server URL:', url);
+  return url;
 };
 
 export const getServerURLs = () => {
-  if (FALLBACK_SERVER_URLS) {
-    return FALLBACK_SERVER_URLS.split(',').map(url => url.trim());
-  }
-  return [];
+  const fallbackUrls = FALLBACK_SERVER_URLS || 'https://whisperlang-render.onrender.com';
+  const urls = fallbackUrls.split(',').map(url => url.trim());
+  console.log('🔍 Fallback server URLs:', urls);
+  return urls;
 };
 
 export const getStunServers = () => {
@@ -37,7 +39,18 @@ export const ICE_SERVERS = {
     {
       urls: getStunServers(),
     },
+    // Add additional public STUN servers for better connectivity
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+      ],
+    },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export const WEBRTC_CONFIG = {

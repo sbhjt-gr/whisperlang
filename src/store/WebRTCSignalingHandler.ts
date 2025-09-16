@@ -92,6 +92,15 @@ export class WebRTCSignalingHandler {
     }
 
     try {
+      // Check if remote description is already set to avoid conflicts
+      if (pc.remoteDescription) {
+        console.log(`⚠️ Remote description already set for ${data.from}, current state:`, pc.signalingState);
+        if (pc.signalingState === 'stable') {
+          console.log(`🔄 Connection is stable, ignoring duplicate offer from ${data.from}`);
+          return;
+        }
+      }
+
       const remoteDesc = new RTCSessionDescription({
         type: 'offer',
         sdp: data.offer,
@@ -117,6 +126,9 @@ export class WebRTCSignalingHandler {
       console.log(`📤 Sent answer to ${data.from}`);
     } catch (error) {
       console.error(`❌ Error handling offer from ${data.from}:`, error);
+      console.error('Connection state:', pc.connectionState);
+      console.error('Signaling state:', pc.signalingState);
+      console.error('ICE connection state:', pc.iceConnectionState);
     }
   }
 
@@ -130,6 +142,15 @@ export class WebRTCSignalingHandler {
     }
 
     try {
+      // Check if we're in the right state to receive an answer
+      if (pc.signalingState !== 'have-local-offer') {
+        console.warn(`⚠️ Unexpected signaling state for answer from ${data.from}: ${pc.signalingState}`);
+        if (pc.signalingState === 'stable') {
+          console.log(`🔄 Connection is already stable, ignoring answer from ${data.from}`);
+          return;
+        }
+      }
+
       const remoteDesc = new RTCSessionDescription({
         type: 'answer',
         sdp: data.answer,
@@ -137,8 +158,13 @@ export class WebRTCSignalingHandler {
 
       await pc.setRemoteDescription(remoteDesc);
       console.log(`✅ Set remote description (answer) from ${data.from}`);
+      console.log(`🔗 Connection state after answer: ${pc.connectionState}`);
+      console.log(`🎯 Signaling state after answer: ${pc.signalingState}`);
     } catch (error) {
       console.error(`❌ Error handling answer from ${data.from}:`, error);
+      console.error('Connection state:', pc.connectionState);
+      console.error('Signaling state:', pc.signalingState);
+      console.error('ICE connection state:', pc.iceConnectionState);
     }
   }
 
@@ -152,11 +178,23 @@ export class WebRTCSignalingHandler {
     }
 
     try {
+      // Only add ICE candidates when remote description is set
+      if (!pc.remoteDescription) {
+        console.warn(`⚠️ Received ICE candidate before remote description from ${data.from}`);
+        console.warn(`Current signaling state: ${pc.signalingState}`);
+        // We could queue candidates here, but for now we'll try to add them anyway
+      }
+
       const candidate = new RTCIceCandidate(data.candidate);
       await pc.addIceCandidate(candidate);
       console.log(`✅ Added ICE candidate from ${data.from}`);
+      console.log(`🧊 ICE connection state: ${pc.iceConnectionState}`);
     } catch (error) {
       console.error(`❌ Error adding ICE candidate from ${data.from}:`, error);
+      console.error('Connection state:', pc.connectionState);
+      console.error('Signaling state:', pc.signalingState);
+      console.error('ICE connection state:', pc.iceConnectionState);
+      console.error('Candidate data:', data.candidate);
     }
   }
 }
